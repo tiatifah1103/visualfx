@@ -1,0 +1,158 @@
+{
+  "topics": [
+    {
+      "topic_name": "Topic 1 - GOD SAVE MC",
+      "anchor_points": [
+        {
+          "anchor_id": 1,
+          "video_path": "footage/mc/finalmc-anchor.mp4",
+          "description": "Anchor point 1 for topic 1"
+        }
+      ],
+      "footage": [
+        {
+          "footage_id": 1,
+          "video_path": "footage/mc/finalmc1.mp4",
+          "description": "Footage video 1 for topic 1"
+        },
+        {
+          "footage_id": 2,
+          "video_path": "footage/mc/finalmc2.mp4",
+          "description": "Footage video 2 for topic 1"
+        },
+        {
+          "footage_id": 3,
+          "video_path": "footage/mc/finalmc3.mp4",
+          "description": "Footage video 3 for topic 1"
+        },
+        {
+          "footage_id": 4,
+          "video_path": "footage/mc/finalmc4.mp4",
+          "description": "Footage video 3 for topic 1"
+        },
+        {
+          "footage_id": 5,
+          "video_path": "footage/mc/finalmc5.mp4",
+          "description": "Footage video 3 for topic 1"
+        },
+        {
+          "footage_id": 6,
+          "video_path": "footage/mc/finalmc6.mp4",
+          "description": "Footage video 3 for topic 1"
+        },
+        {
+          "footage_id": 7,
+          "video_path": "footage/mc/finalmc7.mp4",
+          "description": "Footage video 3 for topic 1"
+        },
+        {
+          "footage_id": 8,
+          "video_path": "footage/mc/finalmc8.mp4",
+          "description": "Footage video 3 for topic 1"
+        },
+        {
+          "footage_id": 9,
+          "video_path": "footage/mc/finalmc9.mp4",
+          "description": "Footage video 3 for topic 1"
+        },
+        {
+          "footage_id": 10,
+          "video_path": "footage/mc/finalmc10.mp4",
+          "description": "Footage video 3 for topic 1"
+        },
+        {
+          "footage_id": 11,
+          "video_path": "footage/mc/finalmc11.mp4",
+          "description": "Footage video 3 for topic 1"
+        },
+        {
+          "footage_id": 12,
+          "video_path": "footage/mc/finalmc12.mp4",
+          "description": "Footage video 3 for topic 1"
+        }
+      ]
+    },
+    {
+      "topic_name": "Topic 2 - WILD BUNCH",
+      "anchor_points": [
+        {
+          "anchor_id": 1,
+          "video_path": "footage/wildbunch/finalwildbunch-anchor.mp4",
+          "description": "Anchor point 1 for topic 2"
+        }
+      ],
+      "footage": [
+        {
+          "footage_id": 1,
+          "video_path": "footage/wildbunch/finalwildbunch1.mp4",
+          "description": "Footage video 1 for topic 2"
+        },
+        {
+          "footage_id": 2,
+          "video_path": "footage/wildbunch/finalwildbunch2.mp4",
+          "description": "Footage video 2 for topic 2"
+        },
+        {
+          "footage_id": 3,
+          "video_path": "footage/wildbunch/finalwildbunch3.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 4,
+          "video_path": "footage/wildbunch/finalwildbunch4.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 5,
+          "video_path": "footage/wildbunch/finalwildbunch5.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 6,
+          "video_path": "footage/wildbunch/finalwildbunch6.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 7,
+          "video_path": "footage/wildbunch/finalwildbunch7.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 8,
+          "video_path": "footage/wildbunch/finalwildbunch8.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 9,
+          "video_path": "footage/wildbunch/finalwildbunch9.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 10,
+          "video_path": "footage/wildbunch/finalwildbunch10.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 11,
+          "video_path": "footage/wildbunch/finalwildbunch11.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 12,
+          "video_path": "footage/wildbunch/finalwildbunch12.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 13,
+          "video_path": "footage/wildbunch/finalwildbunch13.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 14,
+          "video_path": "footage/wildbunch/finalwildbunch14.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+      ]
+    }
+  ]
+}

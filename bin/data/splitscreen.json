@@ -1,0 +1,14 @@
+{
+  "splitScreens": [
+    {
+      "id": "split_01",
+      "file": "JME_SKEPTA_FREESTYLE(2006).mp4",
+      "hasAudio": false
+    },
+    {
+      "id": "split_02",
+      "file": "1980s_UK_Dance_Hall_Party_Black_British_Life_Home_Movies.mp4",
+      "hasAudio": false
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+ofxJSON
+ofxMidi
+ofxOpenCv
+ofxOsc
