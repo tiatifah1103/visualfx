@@ -1,4 +1,4 @@
-# OSCvisualfx
+# Visualfx
 
 ## Description
 This project is part of an interactive documentary that uses openFrameworks to create dynamic visual effects synchronized with audio manipulation. The visuals respond to user interactions through a DJ controller, providing an immersive experience.
