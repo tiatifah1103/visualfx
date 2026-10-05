@@ -1061,84 +1061,202 @@ void ChronologyManager::drawSplitScreen() {
 
 }
 
-void ChronologyManager::keyPressed(int key)
-
+//--------------------------------------------------------------
+void ChronologyManager::keyPressed(
+	int key
+)
 {
+	// ============================================================
+	// DEBUG: SKIP CURRENT ANCHOR
+	//
+	// A = immediately leave the anchor and enter its footage.
+	//
+	// This exists for technical testing only.
+	// ============================================================
 
-	if (currentTopic && !playingAnchor)
-
+	if (
+		key == 'a' ||
+		key == 'A'
+	)
 	{
-
-		if (key == 'q')
-
+		if (
+			currentTopic &&
+			playingAnchor
+		)
 		{
-
 			registerInteraction();
 
-			currentFootageIndex =
+			currentTopic
+				->anchor
+				.video
+				.stop();
 
-				(currentFootageIndex + 1) %
-
-				currentTopic->footage.size();
-
-			playCurrentFootage();
-
-		}
-
-		else if (key == 'w')
-
-		{
-
-			registerInteraction();
+			playingAnchor =
+				false;
 
 			currentFootageIndex =
+				0;
 
-				(currentFootageIndex - 1 +
+			randomizeFootageOrder();
 
-				 currentTopic->footage.size()) %
-
-				currentTopic->footage.size();
-
-			playCurrentFootage();
-
+			ofLogNotice("DEBUG")
+				<< "A -> anchor skipped; entered normal footage";
 		}
 
-		else if (key == 'n')
+		return;
+	}
 
+
+	// ============================================================
+	// CHANGE TOPIC
+	//
+	// Unlike the old keyboard implementation, N is allowed during
+	// an anchor as well. This mirrors the intended installation
+	// behaviour more closely.
+	// ============================================================
+
+	if (
+		key == 'n' ||
+		key == 'N'
+	)
+	{
+		if (
+			currentTopic
+		)
 		{
-
 			registerInteraction();
 
 			selectRandomTopic();
 
+			ofLogNotice("DEBUG")
+				<< "N -> changed topic / started new anchor";
 		}
 
-		if (key == 'l')
-
-		{
-
-			registerInteraction();
-
-			if (isLooping)
-
-			{
-
-				stopLooping();
-
-			}
-
-			else
-
-			{
-
-				startLooping();
-
-			}
-
-		}
-
+		return;
 	}
 
+
+	// ============================================================
+	// THE REMAINING CHRONOLOGY CONTROLS ONLY OPERATE ON NORMAL
+	// FOOTAGE.
+	// ============================================================
+
+	if (
+		!currentTopic ||
+		playingAnchor
+	)
+	{
+		return;
+	}
+
+
+	// ============================================================
+	// NEXT FOOTAGE
+	// ============================================================
+
+	if (
+		key == 'q' ||
+		key == 'Q'
+	)
+	{
+		if (
+			currentTopic->footage.empty()
+		)
+		{
+			return;
+		}
+
+		registerInteraction();
+
+		currentFootageIndex =
+			(
+				currentFootageIndex +
+				1
+			)
+			%
+			currentTopic
+				->footage
+				.size();
+
+		playCurrentFootage();
+
+		ofLogNotice("DEBUG")
+			<< "Q -> next footage";
+
+		return;
+	}
+
+
+	// ============================================================
+	// PREVIOUS FOOTAGE
+	// ============================================================
+
+	if (
+		key == 'w' ||
+		key == 'W'
+	)
+	{
+		if (
+			currentTopic->footage.empty()
+		)
+		{
+			return;
+		}
+
+		registerInteraction();
+
+		currentFootageIndex =
+			(
+				currentFootageIndex -
+				1 +
+				currentTopic
+					->footage
+					.size()
+			)
+			%
+			currentTopic
+				->footage
+				.size();
+
+		playCurrentFootage();
+
+		ofLogNotice("DEBUG")
+			<< "W -> previous footage";
+
+		return;
+	}
+
+
+	// ============================================================
+	// MANUAL LOOP
+	// ============================================================
+
+	if (
+		key == 'l' ||
+		key == 'L'
+	)
+	{
+		registerInteraction();
+
+		if (
+			isLooping
+		)
+		{
+			stopLooping();
+
+			ofLogNotice("DEBUG")
+				<< "L -> manual loop OFF";
+		}
+		else
+		{
+			startLooping();
+
+			ofLogNotice("DEBUG")
+				<< "L -> manual loop ON";
+		}
+
+		return;
+	}
 }
 
 void ChronologyManager::selectRandomTopic() {

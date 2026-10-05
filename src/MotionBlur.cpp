@@ -401,7 +401,6 @@ void MotionBlur::update(
 	ofEnableAlphaBlending();
 
 
-	// Slightly denser than your original 8.
 	//
 	// This increases the number of visible trails without turning
 	// this into a completely different algorithm.
@@ -935,16 +934,7 @@ void MotionBlur::apply(
 
 
 	// ============================================================
-	// ONE MAIN TRAIL COMPOSITE
-	//
-	// This restores the visible quality of your older version.
-	//
-	// Screen is useful because black disappears.
-	//
-	// BUT:
-	//
-	// unlike my bad previous version, there aren't many high-alpha
-	// copies washing the image white.
+
 	// ============================================================
 
 	if (

@@ -94,7 +94,7 @@ private:
 	float loopStartTime = 0.0f;
 	float loopEndTime = 0.0f;
 
-	// Reconstructed defaults: keep your old values if your previous header differs.
+	// Reconstructed defaults
 	float loopDuration = 1.0f;
 	int loopCount = 0;
 	int maxLoopCount = 4;

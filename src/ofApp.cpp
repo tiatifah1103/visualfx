@@ -486,34 +486,924 @@ void ofApp::exit()
 }
 
 //--------------------------------------------------------------
-void ofApp::keyPressed(int key)
+//--------------------------------------------------------------
+void ofApp::keyPressed(
+	int key
+)
 {
-	chronologyManager.keyPressed(key);
+	// ============================================================
+	// CHRONOLOGY KEYS
+	//
+	// Q = next footage
+	// W = previous footage
+	// N = change topic
+	// L = manual loop
+	// A = skip anchor
+	//
+	// ChronologyManager handles these itself.
+	// ============================================================
 
-	if (key == '4')
+	if (
+		key == 'q' ||
+		key == 'Q' ||
+		key == 'w' ||
+		key == 'W' ||
+		key == 'n' ||
+		key == 'N' ||
+		key == 'l' ||
+		key == 'L' ||
+		key == 'a' ||
+		key == 'A'
+	)
 	{
+		chronologyManager.keyPressed(
+			key
+		);
+
+		return;
+	}
+
+
+	// ============================================================
+	// FULLSCREEN
+	// ============================================================
+
+	if (
+		key == 'f' ||
+		key == 'F'
+	)
+	{
+		ofToggleFullscreen();
+
+		ofLogNotice("DEBUG")
+			<< "F -> fullscreen toggled";
+
+		return;
+	}
+
+
+	// ============================================================
+	// SPLIT SCREEN ON / OFF
+	//
+	// 4 mirrors the split-screen slider at its two extremes.
+	// ============================================================
+
+	if (
+		key == '4'
+	)
+	{
+		chronologyManager
+			.registerInteraction();
+
+
 		const bool turnOn =
-			chronologyManager.splitScreenAmount <
+			chronologyManager
+				.splitScreenAmount <
 			0.5f;
 
-		chronologyManager.splitScreenAmount =
+
+		chronologyManager
+			.splitScreenAmount =
 			turnOn
 			?
 			1.0f
 			:
 			0.0f;
 
-		chronologyManager.toggleSplitScreen(
-			turnOn
-		);
+
+		chronologyManager
+			.toggleSplitScreen(
+				turnOn
+			);
+
+
+		ofLogNotice("DEBUG")
+			<< "4 -> split screen "
+			<< (
+				turnOn
+				?
+				"ON"
+				:
+				"OFF"
+			);
+
+
+		return;
 	}
 
-	if (key == '5')
+
+	// ============================================================
+	// ADVANCE SPLIT-SCREEN VIDEO
+	//
+	// 6 mirrors MIDI Note 66.
+	// ============================================================
+
+	if (
+		key == '6'
+	)
 	{
-		visualState.triggerSiren();
+		chronologyManager
+			.registerInteraction();
+
+
+		if (
+			chronologyManager
+				.isSplitScreenActive &&
+			!chronologyManager
+				.splitScreenClips
+				.empty()
+		)
+		{
+			chronologyManager
+				.splitScreenClips[
+					chronologyManager
+						.currentSplitIndex
+				]
+				.video
+				.stop();
+
+
+			chronologyManager
+				.currentSplitIndex =
+				(
+					chronologyManager
+						.currentSplitIndex +
+					1
+				)
+				%
+				static_cast<int>(
+					chronologyManager
+						.splitScreenClips
+						.size()
+				);
+
+
+			chronologyManager
+				.splitScreenClips[
+					chronologyManager
+						.currentSplitIndex
+				]
+				.video
+				.setPosition(
+					0.0f
+				);
+
+
+			chronologyManager
+				.splitScreenClips[
+					chronologyManager
+						.currentSplitIndex
+				]
+				.video
+				.play();
+
+
+			ofLogNotice("DEBUG")
+				<< "6 -> advanced split-screen clip";
+		}
+		else
+		{
+			ofLogNotice("DEBUG")
+				<< "6 -> split screen not currently active";
+		}
+
+
+		return;
+	}
+
+
+	// ============================================================
+	// DUB SIREN
+	//
+	// 5 mirrors the siren trigger.
+	// ============================================================
+
+	if (
+		key == '5'
+	)
+	{
+		chronologyManager
+			.registerInteraction();
+
+
+		visualState
+			.triggerSiren();
+
+
+		ofLogNotice("DEBUG")
+			<< "5 -> siren visual triggered";
+
+
+		return;
+	}
+
+
+	// ============================================================
+	// REVERB / MOTION BLUR DEBUG
+	//
+	// These call the SAME VisualState setters used by OSC.
+	// ============================================================
+
+	static bool debugReverbRoom =
+		false;
+
+	static bool debugReverbWet =
+		false;
+
+	static bool debugReverbDamping =
+		false;
+
+	static bool debugReverbWidth =
+		false;
+
+
+	// ------------------------------------------------------------
+	// 1 = REVERB ROOM SIZE
+	// ------------------------------------------------------------
+
+	if (
+		key == '1'
+	)
+	{
+		debugReverbRoom =
+			!debugReverbRoom;
+
+
+		visualState
+			.setReverbRoom(
+				debugReverbRoom
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		chronologyManager
+			.registerInteraction();
+
+
+		ofLogNotice("DEBUG")
+			<< "1 -> reverb room = "
+			<< (
+				debugReverbRoom
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		return;
+	}
+
+
+	// ------------------------------------------------------------
+	// 2 = REVERB WET
+	//
+	// This is the clearest standalone MotionBlur test.
+	// ------------------------------------------------------------
+
+	if (
+		key == '2'
+	)
+	{
+		debugReverbWet =
+			!debugReverbWet;
+
+
+		visualState
+			.setReverbWet(
+				debugReverbWet
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		chronologyManager
+			.registerInteraction();
+
+
+		ofLogNotice("DEBUG")
+			<< "2 -> reverb wet / motion blur = "
+			<< (
+				debugReverbWet
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		return;
+	}
+
+
+	// ------------------------------------------------------------
+	// 3 = REVERB DAMPING
+	// ------------------------------------------------------------
+
+	if (
+		key == '3'
+	)
+	{
+		debugReverbDamping =
+			!debugReverbDamping;
+
+
+		visualState
+			.setReverbDamping(
+				debugReverbDamping
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		chronologyManager
+			.registerInteraction();
+
+
+		ofLogNotice("DEBUG")
+			<< "3 -> reverb damping = "
+			<< (
+				debugReverbDamping
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		return;
+	}
+
+
+	// ------------------------------------------------------------
+	// 7 = REVERB WIDTH
+	// ------------------------------------------------------------
+
+	if (
+		key == '7'
+	)
+	{
+		debugReverbWidth =
+			!debugReverbWidth;
+
+
+		visualState
+			.setReverbWidth(
+				debugReverbWidth
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		chronologyManager
+			.registerInteraction();
+
+
+		ofLogNotice("DEBUG")
+			<< "7 -> reverb width = "
+			<< (
+				debugReverbWidth
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		return;
+	}
+
+
+	// ============================================================
+	// DELAY / STEP-PRINT DEBUG
+	// ============================================================
+
+	static bool debugDelayMix =
+		false;
+
+	static bool debugDelayFeedback =
+		false;
+
+	static bool debugDelayLong =
+		false;
+
+
+	// ------------------------------------------------------------
+	// 8 = DELAY MIX / STEP PRINT
+	//
+	// Main switch for seeing the StepPrinting effect.
+	// ------------------------------------------------------------
+
+	if (
+		key == '8'
+	)
+	{
+		debugDelayMix =
+			!debugDelayMix;
+
+
+		visualState
+			.setDubSend(
+				debugDelayMix
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		chronologyManager
+			.registerInteraction();
+
+
+		ofLogNotice("DEBUG")
+			<< "8 -> delay mix / step print = "
+			<< (
+				debugDelayMix
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		return;
+	}
+
+
+	// ------------------------------------------------------------
+	// 9 = DELAY FEEDBACK
+	//
+	// Tests persistence / previous printed frames.
+	// ------------------------------------------------------------
+
+	if (
+		key == '9'
+	)
+	{
+		debugDelayFeedback =
+			!debugDelayFeedback;
+
+
+		visualState
+			.setDelayFeedback(
+				debugDelayFeedback
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		chronologyManager
+			.registerInteraction();
+
+
+		ofLogNotice("DEBUG")
+			<< "9 -> delay feedback = "
+			<< (
+				debugDelayFeedback
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		return;
+	}
+
+
+	// ------------------------------------------------------------
+	// 0 = DELAY TIME
+	//
+	// Toggle between the minimum and maximum expected values.
+	// ------------------------------------------------------------
+
+	if (
+		key == '0'
+	)
+	{
+		debugDelayLong =
+			!debugDelayLong;
+
+
+		visualState
+			.setDelayTime(
+				debugDelayLong
+				?
+				2000.0f
+				:
+				50.0f
+			);
+
+
+		chronologyManager
+			.registerInteraction();
+
+
+		ofLogNotice("DEBUG")
+			<< "0 -> delay time = "
+			<< (
+				debugDelayLong
+				?
+				2000
+				:
+				50
+			)
+			<< " ms";
+
+
+		return;
+	}
+
+
+	// ============================================================
+	// EQ VISUALS
+	// ============================================================
+
+	static bool debugBass =
+		false;
+
+	static bool debugMids =
+		false;
+
+	static bool debugTops =
+		false;
+
+
+	// ------------------------------------------------------------
+	// B = BASS / FISHEYE
+	// ------------------------------------------------------------
+
+	if (
+		key == 'b' ||
+		key == 'B'
+	)
+	{
+		debugBass =
+			!debugBass;
+
+
+		visualState
+			.setBass(
+				debugBass
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		chronologyManager
+			.registerInteraction();
+
+
+		ofLogNotice("DEBUG")
+			<< "B -> bass / fisheye = "
+			<< (
+				debugBass
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		return;
+	}
+
+
+	// ------------------------------------------------------------
+	// M = MIDS
+	// ------------------------------------------------------------
+
+	if (
+		key == 'm' ||
+		key == 'M'
+	)
+	{
+		debugMids =
+			!debugMids;
+
+
+		visualState
+			.setMids(
+				debugMids
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		chronologyManager
+			.registerInteraction();
+
+
+		ofLogNotice("DEBUG")
+			<< "M -> mids = "
+			<< (
+				debugMids
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		return;
+	}
+
+
+	// ------------------------------------------------------------
+	// T = TOPS
+	// ------------------------------------------------------------
+
+	if (
+		key == 't' ||
+		key == 'T'
+	)
+	{
+		debugTops =
+			!debugTops;
+
+
+		visualState
+			.setTops(
+				debugTops
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		chronologyManager
+			.registerInteraction();
+
+
+		ofLogNotice("DEBUG")
+			<< "T -> tops = "
+			<< (
+				debugTops
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		return;
+	}
+
+
+	// ============================================================
+	// DUB CROSSFADER VISUAL
+	// ============================================================
+
+	static bool debugCrossfader =
+		false;
+
+
+	if (
+		key == 'c' ||
+		key == 'C'
+	)
+	{
+		debugCrossfader =
+			!debugCrossfader;
+
+
+		visualState
+			.setDubCrossfader(
+				debugCrossfader
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		chronologyManager
+			.registerInteraction();
+
+
+		ofLogNotice("DEBUG")
+			<< "C -> dub crossfader = "
+			<< (
+				debugCrossfader
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		return;
+	}
+
+
+	// ============================================================
+	// SIREN PITCH VISUAL
+	// ============================================================
+
+	static bool debugSirenPitch =
+		false;
+
+
+	if (
+		key == 'p' ||
+		key == 'P'
+	)
+	{
+		debugSirenPitch =
+			!debugSirenPitch;
+
+
+		visualState
+			.setSirenPitch(
+				debugSirenPitch
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		chronologyManager
+			.registerInteraction();
+
+
+		ofLogNotice("DEBUG")
+			<< "P -> siren pitch = "
+			<< (
+				debugSirenPitch
+				?
+				1.0f
+				:
+				0.0f
+			);
+
+
+		return;
+	}
+
+
+	// ============================================================
+	// RESET ALL DEBUG EFFECT VALUES
+	// ============================================================
+
+	if (
+		key == 'r' ||
+		key == 'R'
+	)
+	{
+		debugReverbRoom =
+			false;
+
+		debugReverbWet =
+			false;
+
+		debugReverbDamping =
+			false;
+
+		debugReverbWidth =
+			false;
+
+		debugDelayMix =
+			false;
+
+		debugDelayFeedback =
+			false;
+
+		debugDelayLong =
+			false;
+
+		debugBass =
+			false;
+
+		debugMids =
+			false;
+
+		debugTops =
+			false;
+
+		debugCrossfader =
+			false;
+
+		debugSirenPitch =
+			false;
+
+
+		visualState.setReverbRoom(
+			0.0f
+		);
+
+		visualState.setReverbWet(
+			0.0f
+		);
+
+		visualState.setReverbDamping(
+			0.0f
+		);
+
+		visualState.setReverbWidth(
+			0.0f
+		);
+
+
+		visualState.setDubSend(
+			0.0f
+		);
+
+		visualState.setDelayFeedback(
+			0.0f
+		);
+
+		visualState.setDelayTime(
+			50.0f
+		);
+
+
+		visualState.setBass(
+			0.0f
+		);
+
+		visualState.setMids(
+			0.0f
+		);
+
+		visualState.setTops(
+			0.0f
+		);
+
+
+		visualState.setDubCrossfader(
+			0.0f
+		);
+
+		visualState.setSirenPitch(
+			0.0f
+		);
+
+
+		motionBlur.clear();
+
+		stepPrinting.clearFrames();
+
+
+		chronologyManager
+			.splitScreenAmount =
+			0.0f;
+
+		chronologyManager
+			.toggleSplitScreen(
+				false
+			);
+
+
+		chronologyManager
+			.registerInteraction();
+
+
+		ofLogNotice("DEBUG")
+			<< "R -> all debug effects reset";
+
+
+		return;
+	}
+
+
+	// ============================================================
+	// WAKE / REGISTER INTERACTION ONLY
+	// ============================================================
+
+	if (
+		key == 'i' ||
+		key == 'I'
+	)
+	{
+		chronologyManager
+			.registerInteraction();
+
+
+		ofLogNotice("DEBUG")
+			<< "I -> interaction registered / idle timer reset";
+
+
+		return;
 	}
 }
-
 //--------------------------------------------------------------
 void ofApp::copyFbo(ofFbo& source,
 					ofFbo& destination)
@@ -1268,17 +2158,7 @@ void ofApp::renderTemporalMutation(
 
 
 	// ============================================================
-	// DARK TEMPORAL RESIDUE
-	//
-	// This is the part derived from the dark in-between state you
-	// liked in the failed splice experiment.
-	//
-	// There are NO strips.
-	// NO bands.
-	// NO regions.
-	//
-	// We create a black field and ask MotionBlur to expose only
-	// its accumulated temporal material.
+
 	// ============================================================
 
 	const float darkEntry =
