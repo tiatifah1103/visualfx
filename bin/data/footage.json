@@ -64,11 +64,6 @@
           "footage_id": 11,
           "video_path": "footage/mc/finalmc11.mp4",
           "description": "Footage video 3 for topic 1"
-        },
-        {
-          "footage_id": 12,
-          "video_path": "footage/mc/finalmc12.mp4",
-          "description": "Footage video 3 for topic 1"
         }
       ]
     },
@@ -151,7 +146,215 @@
           "footage_id": 14,
           "video_path": "footage/wildbunch/finalwildbunch14.mp4",
           "description": "Footage video 3 for topic 2"
+        }
+      ]
+    },
+    
+    {
+      "topic_name": "Topic 3 - MAPPING THE BEATS",
+      "anchor_points": [
+        {
+          "anchor_id": 1,
+          "video_path": "footage/mapping/finalmapping-anchorpoint.mp4",
+          "description": "Anchor point 1 for topic 2"
+        }
+      ],
+      "footage": [
+        {
+          "footage_id": 1,
+          "video_path": "footage/mapping/finalmapping1.mp4",
+          "description": "Footage video 1 for topic 2"
         },
+        {
+          "footage_id": 2,
+          "video_path": "footage/mapping/finalmapping2.mp4",
+          "description": "Footage video 2 for topic 2"
+        },
+        {
+          "footage_id": 3,
+          "video_path": "footage/mapping/finalmapping3.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 4,
+          "video_path": "footage/mapping/finalmapping4.mp4",
+          "description": "Footage video 3 for topic 2"
+        }
+      ]
+    },
+    
+    {
+      "topic_name": "Topic 4 - THE SYSTEM IS SOUND",
+      "anchor_points": [
+        {
+          "anchor_id": 1,
+          "video_path": "footage/system/finalsystem-anchorpoint.mp4",
+          "description": "Anchor point 1 for topic 2"
+        }
+      ],
+      "footage": [
+        {
+          "footage_id": 1,
+          "video_path": "footage/system/finalsystem1.mp4",
+          "description": "Footage video 1 for topic 2"
+        },
+        {
+          "footage_id": 2,
+          "video_path": "footage/system/finalsystem2.mp4",
+          "description": "Footage video 2 for topic 2"
+        },
+        {
+          "footage_id": 3,
+          "video_path": "footage/system/finalsystem3.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 4,
+          "video_path": "footage/system/finalsystem4.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 5,
+          "video_path": "footage/system/finalsystem5.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 6,
+          "video_path": "footage/system/finalsystem6.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 7,
+          "video_path": "footage/system/finalsystem7.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 8,
+          "video_path": "footage/system/finalsystem8.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 9,
+          "video_path": "footage/system/finalsystem9.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 10,
+          "video_path": "footage/system/finalsystem10.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 11,
+          "video_path": "footage/system/finalsystem11.mp4",
+          "description": "Footage video 3 for topic 2"
+        }
+      ]
+    },
+    {
+      "topic_name": "Topic 5 - DIY, TECHNICALITY AND SPATIALITY",
+      "anchor_points": [
+        {
+          "anchor_id": 1,
+          "video_path": "footage/space/finalspace-anchorpoint.mp4",
+          "description": "Anchor point 1 for topic 2"
+        }
+      ],
+      "footage": [
+        {
+          "footage_id": 1,
+          "video_path": "footage/space/finalspace1.mp4",
+          "description": "Footage video 1 for topic 2"
+        },
+        {
+          "footage_id": 2,
+          "video_path": "footage/space/finalspace2.mp4",
+          "description": "Footage video 2 for topic 2"
+        },
+        {
+          "footage_id": 3,
+          "video_path": "footage/space/finalspace3.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 4,
+          "video_path": "footage/space/finalspace4.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 5,
+          "video_path": "footage/space/finalspace5.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 6,
+          "video_path": "footage/space/finalspace6.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 7,
+          "video_path": "footage/space/finalspace7.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 8,
+          "video_path": "footage/space/finalspace8.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 9,
+          "video_path": "footage/space/finalspace9.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 10,
+          "video_path": "footage/space/finalspace10.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 11,
+          "video_path": "footage/space/finalspace11.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 12,
+          "video_path": "footage/space/finalspace12.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 13,
+          "video_path": "footage/space/finalspace13.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 14,
+          "video_path": "footage/space/finalspace14.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 15,
+          "video_path": "footage/space/finalspace15.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 16,
+          "video_path": "footage/space/finalspace16.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 17,
+          "video_path": "footage/space/finalspace17.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 18,
+          "video_path": "footage/space/finalspace18.mp4",
+          "description": "Footage video 3 for topic 2"
+        },
+        {
+          "footage_id": 19,
+          "video_path": "footage/space/finalspace19.mp4",
+          "description": "Footage video 3 for topic 2"
+        }
       ]
     }
   ]

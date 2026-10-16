@@ -118,111 +118,232 @@ void FisheyeLens::renderTo(const ofTexture& videoTexture,
 }
 
 //--------------------------------------------------------------
-void FisheyeLens::renderTexture(const ofTexture& videoTexture,
-								ofFbo& destination)
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+void FisheyeLens::renderTexture(
+	const ofTexture& videoTexture,
+	ofFbo& destination
+)
 {
-	if (!videoTexture.isAllocated())
+	if (
+		!videoTexture.isAllocated()
+	)
+	{
 		return;
+	}
+
 
 	const int width =
 		static_cast<int>(
 			videoTexture.getWidth()
 		);
 
+
 	const int height =
 		static_cast<int>(
 			videoTexture.getHeight()
 		);
 
-	if (width <= 0 ||
-		height <= 0)
+
+	if (
+		width <= 0 ||
+		height <= 0
+	)
 	{
 		return;
 	}
 
-	if (!destination.isAllocated() ||
+
+	if (
+		!destination.isAllocated() ||
 		destination.getWidth() != width ||
-		destination.getHeight() != height)
+		destination.getHeight() != height
+	)
 	{
-		destination.allocate(width,
-							 height,
-							 GL_RGBA);
+		destination.allocate(
+			width,
+			height,
+			GL_RGBA
+		);
 	}
+
 
 	const float finalDistortion =
 		calculateFinalDistortion();
 
+
+	// ============================================================
+	// ABSOLUTE ZERO
+	//
+	// Bass genuinely OFF:
+	// return the original image exactly.
+	// ============================================================
+
+	if (
+		std::abs(
+			finalDistortion
+		)
+		<
+		0.0005f
+	)
+	{
+		destination.begin();
+
+
+		ofClear(
+			0,
+			0,
+			0,
+			255
+		);
+
+
+		ofSetColor(255);
+
+
+		videoTexture.draw(
+			0,
+			0,
+			width,
+			height
+		);
+
+
+		destination.end();
+
+
+		return;
+	}
+
+
+	// ============================================================
+	// FISHEYE GEOMETRY
+	// ============================================================
+
 	const float maxDim =
 		static_cast<float>(
-			std::max(width,
-					 height)
+			std::max(
+				width,
+				height
+			)
 		);
+
 
 	const float halfMax =
 		maxDim *
 		0.5f;
+
 
 	const float centreX =
 		width *
 		0.5f +
 		currentOffset.x;
 
+
 	const float centreY =
 		height *
 		0.5f +
 		currentOffset.y;
 
+
+	// ============================================================
+	// DESTINATION
+	//
+	// IMPORTANT:
+	//
+	// We DO NOT draw the untouched source underneath.
+	//
+	// The warped mesh IS the image.
+	// ============================================================
+
 	destination.begin();
 
-	ofClear(0, 0, 0, 255);
+
+	ofClear(
+		0,
+		0,
+		0,
+		255
+	);
+
+
+	ofSetColor(255);
+
 
 	ofMesh mesh;
-	mesh.setMode(OF_PRIMITIVE_TRIANGLES);
 
+
+	mesh.setMode(
+		OF_PRIMITIVE_TRIANGLES
+	);
+
+
+	// Slightly finer mesh than before.
+	//
+	// This reduces the chance of visible holes / coarse edges
+	// without changing the character of the fisheye.
 	const int step =
-		10;
+		8;
 
-	for (int y = 0;
-		 y < height - step;
-		 y += step)
+
+	for (
+		int y = 0;
+		y < height - step;
+		y += step
+	)
 	{
-		for (int x = 0;
-			 x < width - step;
-			 x += step)
+		for (
+			int x = 0;
+			x < width - step;
+			x += step
+		)
 		{
-			for (int dy = 0;
-				 dy <= step;
-				 dy += step)
+			for (
+				int dy = 0;
+				dy <= step;
+				dy += step
+			)
 			{
-				for (int dx = 0;
-					 dx <= step;
-					 dx += step)
+				for (
+					int dx = 0;
+					dx <= step;
+					dx += step
+				)
 				{
 					const float srcX =
 						x +
 						dx;
 
+
 					const float srcY =
 						y +
 						dy;
 
+
 					const float nx =
-						(srcX -
-						 centreX)
+						(
+							srcX -
+							centreX
+						)
 						/
 						halfMax;
 
+
 					const float ny =
-						(srcY -
-						 centreY)
+						(
+							srcY -
+							centreY
+						)
 						/
 						halfMax;
+
 
 					const float r =
 						std::sqrt(
 							nx * nx +
 							ny * ny
 						);
+
 
 					const float vibration =
 						vibrationAmount *
@@ -232,27 +353,47 @@ void FisheyeLens::renderTexture(const ofTexture& videoTexture,
 							10.0f
 						);
 
+
 					const float theta =
-						std::atan(r);
+						std::atan(
+							r
+						);
+
 
 					float distortedR =
-						(r > 0.0f)
+						(
+							r >
+							0.0f
+						)
 						?
-						theta / r
+						theta /
+							r
 						:
 						1.0f;
+
 
 					distortedR =
 						1.0f +
 						finalDistortion *
-						(distortedR -
-						 1.0f)
+						(
+							distortedR -
+							1.0f
+						)
 						*
-						(1.0f +
-						 vibration);
+						(
+							1.0f +
+							vibration
+						);
 
-					if (currentPulseStrength >
-						0.0f)
+
+					// ====================================================
+					// BASS PULSE
+					// ====================================================
+
+					if (
+						currentPulseStrength >
+						0.0f
+					)
 					{
 						const float pulseDistort =
 							currentPulseStrength *
@@ -263,27 +404,33 @@ void FisheyeLens::renderTexture(const ofTexture& videoTexture,
 								2.0f
 							);
 
+
 						distortedR +=
 							pulseDistort;
 					}
+
 
 					const float distortedX =
 						nx *
 						distortedR;
 
+
 					const float distortedY =
 						ny *
 						distortedR;
+
 
 					const float u =
 						centreX +
 						distortedX *
 						halfMax;
 
+
 					const float v =
 						centreY +
 						distortedY *
 						halfMax;
+
 
 					mesh.addVertex(
 						glm::vec3(
@@ -292,6 +439,7 @@ void FisheyeLens::renderTexture(const ofTexture& videoTexture,
 							0.0f
 						)
 					);
+
 
 					mesh.addTexCoord(
 						glm::vec2(
@@ -302,28 +450,60 @@ void FisheyeLens::renderTexture(const ofTexture& videoTexture,
 				}
 			}
 
+
 			const int i =
 				mesh.getNumVertices();
 
-			mesh.addIndex(i - 4);
-			mesh.addIndex(i - 3);
-			mesh.addIndex(i - 2);
 
-			mesh.addIndex(i - 4);
-			mesh.addIndex(i - 2);
-			mesh.addIndex(i - 1);
+			mesh.addIndex(
+				i - 4
+			);
+
+			mesh.addIndex(
+				i - 3
+			);
+
+			mesh.addIndex(
+				i - 2
+			);
+
+
+			mesh.addIndex(
+				i - 4
+			);
+
+			mesh.addIndex(
+				i - 2
+			);
+
+			mesh.addIndex(
+				i - 1
+			);
 		}
 	}
 
+
+	// ============================================================
+	// DRAW WARPED VIDEO AT FULL OPACITY
+	// ============================================================
+
 	ofSetColor(255);
 
+
 	videoTexture.bind();
+
+
 	mesh.draw();
+
+
 	videoTexture.unbind();
+
+
+	ofSetColor(255);
+
 
 	destination.end();
 }
-
 //--------------------------------------------------------------
 void FisheyeLens::updatePulsing(float deltaTime)
 {
@@ -503,20 +683,47 @@ float FisheyeLens::getDistortionStrength() const
 //--------------------------------------------------------------
 void FisheyeLens::reset()
 {
-	setDistortionStrength(
-		0.0f
-	);
+	// ============================================================
+	// ABSOLUTE FISHEYE RESET
+	//
+	// Bass at zero must mean:
+	//
+	// NO distortion
+	// NO residual smoothing
+	// NO pulse
+	// NO movement
+	// NO vibration
+	// ============================================================
+
+	distortionStrength =
+		0.0f;
+
+
+	currentDistortion =
+		0.0f;
+
 
 	bassLevel =
 		0.0f;
 
+
 	currentPulseStrength =
 		0.0f;
+
+
+	movementAmount =
+		0.0f;
+
+
+	vibrationAmount =
+		0.0f;
+
 
 	currentOffset.set(
 		0.0f,
 		0.0f
 	);
+
 
 	targetOffset.set(
 		0.0f,

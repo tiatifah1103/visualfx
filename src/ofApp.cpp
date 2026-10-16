@@ -51,171 +51,510 @@ void ofApp::setup()
 }
 
 //--------------------------------------------------------------
+//--------------------------------------------------------------
 void ofApp::update()
 {
+	// ============================================================
+	// CHRONOLOGY
+	//
+	// This also processes queued MIDI work on the main thread.
+	// ============================================================
+
 	chronologyManager.update();
 
-	if (chronologyManager.isSplitScreenActive &&
-		!chronologyManager.splitScreenClips.empty())
-	{
-		chronologyManager
-			.splitScreenClips[
-				chronologyManager.currentSplitIndex
-			]
-			.video
-			.update();
-	}
 
-	while (oscReceiver.hasWaitingMessages())
+	// ============================================================
+	// OSC
+	// ============================================================
+
+	constexpr int maxOscMessagesPerFrame =
+		256;
+
+
+	int oscMessagesProcessed =
+		0;
+
+
+	while (
+		oscReceiver.hasWaitingMessages() &&
+		oscMessagesProcessed <
+			maxOscMessagesPerFrame
+	)
 	{
+		++oscMessagesProcessed;
+
+
 		ofxOscMessage m;
-		oscReceiver.getNextMessage(m);
+
+		oscReceiver.getNextMessage(
+			m
+		);
+
 
 		const std::string address =
 			m.getAddress();
 
-		if (address == "/reverb/roomSize")
+
+		// ========================================================
+		// INTERACTION REQUIRES NO VALUE
+		// ========================================================
+
+		if (
+			address ==
+			"/interaction"
+		)
 		{
-			visualState.setReverbRoom(
-				m.getArgAsFloat(0)
-			);
-		}
-		else if (address == "/reverb/wetLevel")
-		{
-			visualState.setReverbWet(
-				m.getArgAsFloat(0)
-			);
-		}
-		else if (address == "/reverb/damping")
-		{
-			visualState.setReverbDamping(
-				m.getArgAsFloat(0)
-			);
-		}
-		else if (address == "/reverb/width")
-		{
-			visualState.setReverbWidth(
-				m.getArgAsFloat(0)
-			);
+			chronologyManager
+				.registerInteraction();
+
+			continue;
 		}
 
-		else if (address == "/delay/delayTime")
+
+		// ========================================================
+		// EVERYTHING ELSE BELOW REQUIRES ARGUMENT ZERO
+		// ========================================================
+
+		if (
+			m.getNumArgs() <
+			1
+		)
 		{
-			visualState.setDelayTime(
-				m.getArgAsFloat(0)
-			);
-		}
-		else if (address == "/delay/feedbackValue")
-		{
-			visualState.setDelayFeedback(
-				m.getArgAsFloat(0)
-			);
-		}
-		else if (address == "/delay/mixValue")
-		{
-			visualState.setDubSend(
-				m.getArgAsFloat(0)
-			);
+			ofLogWarning()
+				<< "Ignoring OSC message with no argument: "
+				<< address;
+
+			continue;
 		}
 
-		else if (address == "/eq/bass")
-		{
-			visualState.setBass(
-				m.getArgAsFloat(0)
-			);
-		}
-		else if (address == "/eq/mids")
-		{
-			visualState.setMids(
-				m.getArgAsFloat(0)
-			);
-		}
-		else if (address == "/eq/tops")
-		{
-			visualState.setTops(
-				m.getArgAsFloat(0)
-			);
-		}
 
-		else if (address == "/dub/crossfader")
-		{
-			visualState.setDubCrossfader(
-				m.getArgAsFloat(0)
-			);
-		}
+		// ========================================================
+		// SAFE ARGUMENT HELPERS
+		// ========================================================
 
-		else if (address == "/dub/sirenPitch")
-		{
-			visualState.setSirenPitch(
-				m.getArgAsFloat(0)
-			);
-		}
-		else if (address == "/dub/siren")
-		{
-			if (m.getArgAsInt(0) == 1)
+		auto readFloat =
+			[&m](float& value) -> bool
 			{
-				visualState.triggerSiren();
+				try
+				{
+					value =
+						m.getArgAsFloat(
+							0
+						);
+
+
+					if (!std::isfinite(
+							value))
+					{
+						return false;
+					}
+
+
+					return true;
+				}
+				catch (...)
+				{
+					return false;
+				}
+			};
+
+
+		auto readInt =
+			[&m](int& value) -> bool
+			{
+				try
+				{
+					value =
+						m.getArgAsInt(
+							0
+						);
+
+					return true;
+				}
+				catch (...)
+				{
+					return false;
+				}
+			};
+
+
+		// ========================================================
+		// REVERB
+		// ========================================================
+
+		if (
+			address ==
+			"/reverb/roomSize"
+		)
+		{
+			float value = 0.0f;
+
+			if (readFloat(value))
+			{
+				visualState
+					.setReverbRoom(
+						value
+					);
 			}
 		}
 
-		else if (address == "/video/advance" &&
-				 m.getArgAsInt(0) == 1)
+		else if (
+			address ==
+			"/reverb/wetLevel"
+		)
 		{
-			if (!videos.empty())
+			float value = 0.0f;
+
+			if (readFloat(value))
+			{
+				visualState
+					.setReverbWet(
+						value
+					);
+			}
+		}
+
+		else if (
+			address ==
+			"/reverb/damping"
+		)
+		{
+			float value = 0.0f;
+
+			if (readFloat(value))
+			{
+				visualState
+					.setReverbDamping(
+						value
+					);
+			}
+		}
+
+		else if (
+			address ==
+			"/reverb/width"
+		)
+		{
+			float value = 0.0f;
+
+			if (readFloat(value))
+			{
+				visualState
+					.setReverbWidth(
+						value
+					);
+			}
+		}
+
+
+		// ========================================================
+		// DELAY
+		// ========================================================
+
+		else if (
+			address ==
+			"/delay/delayTime"
+		)
+		{
+			float value = 0.0f;
+
+			if (readFloat(value))
+			{
+				visualState
+					.setDelayTime(
+						value
+					);
+			}
+		}
+
+		else if (
+			address ==
+			"/delay/feedbackValue"
+		)
+		{
+			float value = 0.0f;
+
+			if (readFloat(value))
+			{
+				visualState
+					.setDelayFeedback(
+						value
+					);
+			}
+		}
+
+		else if (
+			address ==
+			"/delay/mixValue"
+		)
+		{
+			float value = 0.0f;
+
+			if (readFloat(value))
+			{
+				visualState
+					.setDubSend(
+						value
+					);
+			}
+		}
+
+
+		// ========================================================
+		// EQ
+		// ========================================================
+
+		else if (
+			address ==
+			"/eq/bass"
+		)
+		{
+			float value = 0.0f;
+
+			if (readFloat(value))
+			{
+				visualState
+					.setBass(
+						value
+					);
+			}
+		}
+
+		else if (
+			address ==
+			"/eq/mids"
+		)
+		{
+			float value = 0.0f;
+
+			if (readFloat(value))
+			{
+				visualState
+					.setMids(
+						value
+					);
+			}
+		}
+
+		else if (
+			address ==
+			"/eq/tops"
+		)
+		{
+			float value = 0.0f;
+
+			if (readFloat(value))
+			{
+				visualState
+					.setTops(
+						value
+					);
+			}
+		}
+
+
+		// ========================================================
+		// DUB CROSSFADER
+		// ========================================================
+
+		else if (
+			address ==
+			"/dub/crossfader"
+		)
+		{
+			float value = 0.0f;
+
+			if (readFloat(value))
+			{
+				visualState
+					.setDubCrossfader(
+						value
+					);
+			}
+		}
+
+
+		// ========================================================
+		// SIREN
+		// ========================================================
+
+		else if (
+			address ==
+			"/dub/sirenPitch"
+		)
+		{
+			float value = 0.0f;
+
+			if (readFloat(value))
+			{
+				visualState
+					.setSirenPitch(
+						value
+					);
+			}
+		}
+
+		else if (
+			address ==
+			"/dub/siren"
+		)
+		{
+			int value = 0;
+
+			if (
+				readInt(value) &&
+				value ==
+					1
+			)
+			{
+				visualState
+					.triggerSiren();
+			}
+		}
+
+
+		// ========================================================
+		// LEGACY VIDEO ADVANCE
+		// ========================================================
+
+		else if (
+			address ==
+			"/video/advance"
+		)
+		{
+			int value = 0;
+
+
+			if (
+				readInt(value) &&
+				value ==
+					1 &&
+				!videos.empty()
+			)
 			{
 				currentVideoIndex =
-					(currentVideoIndex + 1)
+					(
+						currentVideoIndex +
+						1
+					)
 					%
-					static_cast<int>(videos.size());
+					static_cast<int>(
+						videos.size()
+					);
 
-				for (int i = 0;
-					 i < static_cast<int>(videos.size());
-					 ++i)
+
+				for (
+					int i = 0;
+					i <
+						static_cast<int>(
+							videos.size()
+						);
+					++i
+				)
 				{
-					if (i == currentVideoIndex)
-						videos[i].play();
+					if (
+						i ==
+						currentVideoIndex
+					)
+					{
+						videos[i]
+							.play();
+					}
 					else
-						videos[i].stop();
+					{
+						videos[i]
+							.stop();
+					}
 				}
 			}
 		}
-
-		else if (address == "/interaction")
-		{
-			chronologyManager.registerInteraction();
-		}
 	}
+
+
+	// ============================================================
+	// VISUAL STATE
+	// ============================================================
 
 	visualState.update(
 		ofGetLastFrameTime()
 	);
 
+
 	applyVisualStateParameters();
 
-	if (!chronologyManager.isIdle &&
-		!chronologyManager.isPlayingAnchor())
+
+	// ============================================================
+	// EFFECT HISTORIES
+	// ============================================================
+
+	if (
+		!chronologyManager.isIdle &&
+		!chronologyManager
+			.isPlayingAnchor()
+	)
 	{
-		updateEffectHistories(
-			chronologyManager.getCurrentVideo()
-		);
+		ofVideoPlayer* currentVideo =
+			chronologyManager
+				.getCurrentVideo();
+
+
+		if (
+			currentVideo !=
+			nullptr
+		)
+		{
+			updateEffectHistories(
+				currentVideo
+			);
+		}
 	}
 }
-
+//--------------------------------------------------------------
 //--------------------------------------------------------------
 void ofApp::draw()
 {
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	ofBackground(0, 0, 0);
+	glBindFramebuffer(
+		GL_FRAMEBUFFER,
+		0
+	);
+
+
+	ofBackground(
+		0,
+		0,
+		0
+	);
+
+
+	// ============================================================
+	// GET CURRENT MAIN VIDEO SAFELY
+	// ============================================================
 
 	ofVideoPlayer* currentVideo =
-		chronologyManager.getCurrentVideo();
+		chronologyManager
+			.getCurrentVideo();
 
-	if (currentVideo == nullptr)
+
+	if (
+		currentVideo ==
+		nullptr
+	)
+	{
 		return;
+	}
 
-	if (chronologyManager.isIdle)
+
+	// ============================================================
+	// IDLE
+	// ============================================================
+
+	if (
+		chronologyManager
+			.isIdle
+	)
 	{
 		ofSetColor(255);
+
 
 		currentVideo->draw(
 			0,
@@ -224,12 +563,24 @@ void ofApp::draw()
 			ofGetHeight()
 		);
 
+
 		return;
 	}
 
-	if (chronologyManager.isPlayingAnchor())
+
+	// ============================================================
+	// ANCHOR
+	//
+	// Anchors deliberately bypass the visual effects.
+	// ============================================================
+
+	if (
+		chronologyManager
+			.isPlayingAnchor()
+	)
 	{
 		ofSetColor(255);
+
 
 		currentVideo->draw(
 			0,
@@ -238,28 +589,54 @@ void ofApp::draw()
 			ofGetHeight()
 		);
 
+
 		return;
 	}
 
-	buildProcessedFrame(currentVideo);
 
-	if (chronologyManager.isSplitScreenActive)
+	// ============================================================
+	// BUILD MAIN PROCESSED VIDEO
+	// ============================================================
+
+	buildProcessedFrame(
+		currentVideo
+	);
+
+
+	// ============================================================
+	// SPLIT SCREEN / DOUBLE EXPOSURE
+	// ============================================================
+
+	if (
+		chronologyManager
+			.isSplitScreenActive
+	)
 	{
 		const float amount =
 			ofClamp(
-				chronologyManager.splitScreenAmount,
+				chronologyManager
+					.splitScreenAmount,
 				0.0f,
 				1.0f
 			);
 
+
 		const float screenWidth =
 			ofGetWidth();
+
 
 		const float screenHeight =
 			ofGetHeight();
 
+
 		const float halfWidth =
-			screenWidth * 0.5f;
+			screenWidth *
+			0.5f;
+
+
+		// ========================================================
+		// SMOOTHING HELPER
+		// ========================================================
 
 		auto smooth01 =
 			[](float value)
@@ -271,18 +648,28 @@ void ofApp::draw()
 						1.0f
 					);
 
+
 				return
 					value *
 					value *
-					(3.0f -
-					 2.0f * value);
+					(
+						3.0f -
+						2.0f *
+							value
+					);
 			};
+
+
+		// ========================================================
+		// DOUBLE-EXPOSURE -> SPLIT-SCREEN TRANSITION
+		// ========================================================
 
 		const float exposurePeak =
 			std::sin(
 				amount *
 				PI
 			);
+
 
 		const float separation =
 			smooth01(
@@ -296,13 +683,23 @@ void ofApp::draw()
 				)
 			);
 
+
 		const float splitOpacity =
 			ofClamp(
-				exposurePeak * 0.70f +
+				exposurePeak *
+					0.70f +
 				separation,
 				0.0f,
 				1.0f
 			);
+
+
+		// ========================================================
+		// MAIN VIDEO WIDTH
+		//
+		// Fullscreen at low amount.
+		// Half-screen as separation approaches 1.
+		// ========================================================
 
 		const float mainWidth =
 			ofLerp(
@@ -311,6 +708,7 @@ void ofApp::draw()
 				separation
 			);
 
+
 		drawDryProcessedComposite(
 			0,
 			0,
@@ -318,28 +716,42 @@ void ofApp::draw()
 			screenHeight
 		);
 
+
+		// ========================================================
+		// SECONDARY VIDEO GEOMETRY
+		// ========================================================
+
 		const float exposureScale =
 			0.88f;
+
 
 		const float exposureWidth =
 			screenWidth *
 			exposureScale;
 
+
 		const float exposureHeight =
 			screenHeight *
 			exposureScale;
 
+
 		const float exposureX =
-			(screenWidth -
-			 exposureWidth)
+			(
+				screenWidth -
+				exposureWidth
+			)
 			*
 			0.5f;
 
+
 		const float exposureY =
-			(screenHeight -
-			 exposureHeight)
+			(
+				screenHeight -
+				exposureHeight
+			)
 			*
 			0.5f;
+
 
 		const float splitX =
 			ofLerp(
@@ -348,12 +760,14 @@ void ofApp::draw()
 				separation
 			);
 
+
 		const float splitY =
 			ofLerp(
 				exposureY,
 				0.0f,
 				separation
 			);
+
 
 		const float splitWidth =
 			ofLerp(
@@ -362,6 +776,7 @@ void ofApp::draw()
 				separation
 			);
 
+
 		const float splitHeight =
 			ofLerp(
 				exposureHeight,
@@ -369,20 +784,39 @@ void ofApp::draw()
 				separation
 			);
 
-		if (!chronologyManager
-				 .splitScreenClips
-				 .empty())
+
+		// ========================================================
+		// GET SPLIT VIDEO SAFELY
+		//
+		// IMPORTANT:
+		//
+		// We no longer do:
+		//
+		// splitScreenClips[currentSplitIndex]
+		//
+		// directly here.
+		//
+		// ChronologyManager checks that the index is valid first.
+		// ========================================================
+
+		ofVideoPlayer* splitVideo =
+			chronologyManager
+				.getCurrentSplitScreenVideo();
+
+
+		if (
+			splitVideo !=
+			nullptr
+		)
 		{
-			ofVideoPlayer& splitVideo =
-				chronologyManager
-					.splitScreenClips[
-						chronologyManager.currentSplitIndex
-					]
-					.video;
+			// ====================================================
+			// DOUBLE-EXPOSURE BLEND
+			// ====================================================
 
 			ofEnableBlendMode(
 				OF_BLENDMODE_SCREEN
 			);
+
 
 			ofSetColor(
 				255,
@@ -394,70 +828,117 @@ void ofApp::draw()
 				)
 			);
 
+
+			// ====================================================
+			// VIDEO DIMENSIONS
+			// ====================================================
+
 			const float videoWidth =
-				splitVideo.getWidth();
+				splitVideo
+					->getWidth();
+
 
 			const float videoHeight =
-				splitVideo.getHeight();
+				splitVideo
+					->getHeight();
 
-			if (videoWidth > 0.0f &&
-				videoHeight > 0.0f)
+
+			// Never divide by zero if a video has failed to
+			// initialise or AVFoundation has not supplied its
+			// dimensions yet.
+
+			if (
+				videoWidth >
+					0.0f &&
+				videoHeight >
+					0.0f &&
+				splitWidth >
+					0.0f &&
+				splitHeight >
+					0.0f
+			)
 			{
 				const float videoAspect =
 					videoWidth /
 					videoHeight;
 
+
 				const float destinationAspect =
 					splitWidth /
 					splitHeight;
 
+
 				float drawWidth =
 					splitWidth;
+
 
 				float drawHeight =
 					splitHeight;
 
+
 				float drawX =
 					splitX;
+
 
 				float drawY =
 					splitY;
 
-				if (videoAspect >
-					destinationAspect)
+
+				// ================================================
+				// ASPECT-RATIO-CORRECT DRAW
+				// ================================================
+
+				if (
+					videoAspect >
+					destinationAspect
+				)
 				{
+					// Width constrained.
+
 					drawWidth =
 						splitWidth;
+
 
 					drawHeight =
 						drawWidth /
 						videoAspect;
 
+
 					drawY =
 						splitY +
-						(splitHeight -
-						 drawHeight)
+						(
+							splitHeight -
+							drawHeight
+						)
 						*
 						0.5f;
 				}
+
 				else
 				{
+					// Height constrained.
+
 					drawHeight =
 						splitHeight;
+
 
 					drawWidth =
 						drawHeight *
 						videoAspect;
 
+
 					drawX =
 						splitX +
-						(splitWidth -
-						 drawWidth)
+						(
+							splitWidth -
+							drawWidth
+						)
 						*
 						0.5f;
 				}
 
-				splitVideo.draw(
+
+				splitVideo->draw(
 					drawX,
 					drawY,
 					drawWidth,
@@ -465,12 +946,22 @@ void ofApp::draw()
 				);
 			}
 
+
 			ofDisableBlendMode();
+
+
 			ofSetColor(255);
 		}
 
+
+		// Split-screen branch is finished.
 		return;
 	}
+
+
+	// ============================================================
+	// NORMAL FULLSCREEN PROCESSED VIDEO
+	// ============================================================
 
 	drawDryProcessedComposite(
 		0,
@@ -479,10 +970,11 @@ void ofApp::draw()
 		ofGetHeight()
 	);
 }
-
+//--------------------------------------------------------------
 //--------------------------------------------------------------
 void ofApp::exit()
 {
+	chronologyManager.shutdown();
 }
 
 //--------------------------------------------------------------
@@ -603,69 +1095,11 @@ void ofApp::keyPressed(
 	)
 	{
 		chronologyManager
-			.registerInteraction();
+			.advanceSplitScreen();
 
 
-		if (
-			chronologyManager
-				.isSplitScreenActive &&
-			!chronologyManager
-				.splitScreenClips
-				.empty()
-		)
-		{
-			chronologyManager
-				.splitScreenClips[
-					chronologyManager
-						.currentSplitIndex
-				]
-				.video
-				.stop();
-
-
-			chronologyManager
-				.currentSplitIndex =
-				(
-					chronologyManager
-						.currentSplitIndex +
-					1
-				)
-				%
-				static_cast<int>(
-					chronologyManager
-						.splitScreenClips
-						.size()
-				);
-
-
-			chronologyManager
-				.splitScreenClips[
-					chronologyManager
-						.currentSplitIndex
-				]
-				.video
-				.setPosition(
-					0.0f
-				);
-
-
-			chronologyManager
-				.splitScreenClips[
-					chronologyManager
-						.currentSplitIndex
-				]
-				.video
-				.play();
-
-
-			ofLogNotice("DEBUG")
-				<< "6 -> advanced split-screen clip";
-		}
-		else
-		{
-			ofLogNotice("DEBUG")
-				<< "6 -> split screen not currently active";
-		}
+		ofLogNotice("DEBUG")
+			<< "6 -> requested split-screen advance";
 
 
 		return;
@@ -1479,18 +1913,20 @@ void ofApp::blendFbo(ofFbo& base,
 
 //--------------------------------------------------------------
 //--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
 void ofApp::applyVisualStateParameters()
 {
 	static bool previousBlurActive =
 		false;
-
 
 	static bool previousStepActive =
 		false;
 
 
 	// ============================================================
-	// MOTION BLUR
+	// MOTION BLUR / REVERB
 	// ============================================================
 
 	const float blurWeight =
@@ -1502,9 +1938,16 @@ void ofApp::applyVisualStateParameters()
 		);
 
 
+	// VisualStateManager already performs the easing.
+	//
+	// Once it reaches this floor, Reverb is genuinely OFF.
 	const bool blurControlActive =
 		blurWeight >
-		0.001f;
+		0.018f;
+
+
+	isMotionBlurActive =
+		blurControlActive;
 
 
 	motionBlur.setBlendFactor(
@@ -1514,41 +1957,62 @@ void ofApp::applyVisualStateParameters()
 
 
 	motionBlur.setMixAmount(
+		blurControlActive
+		?
 		visualState
 			.getBlurMix()
+		:
+		0.0f
 	);
 
 
 	motionBlur.setStretchAmount(
+		blurControlActive
+		?
 		visualState
 			.getBlurStretch()
+		:
+		0.0f
 	);
 
 
 	// ============================================================
-	// IMPORTANT
+	// IMPORTANT:
 	//
-	// Blur remains renderable briefly after controller input falls
-	// to zero, while its accumulated trail dies.
+	// ZERO REALLY MEANS ZERO.
+	//
+	// The easing has already happened in VisualStateManager.
+	//
+	// Once blurWeight reaches the OFF threshold, destroy the old
+	// accumulation completely so it cannot keep appearing through
+	// hasVisibleResidue().
 	// ============================================================
 
-	isMotionBlurActive =
-		blurControlActive ||
-		motionBlur.hasVisibleResidue();
+	if (
+		previousBlurActive &&
+		!blurControlActive
+	)
+	{
+		motionBlur.clear();
+	}
 
 
 	// ============================================================
-	// STEP PRINT
+	// STEP PRINT / DELAY
 	// ============================================================
 
 	const float stepWeight =
-		visualState
-			.getStepPrintWeight();
+		ofClamp(
+			visualState
+				.getStepPrintWeight(),
+			0.0f,
+			1.0f
+		);
 
 
 	isStepActive =
 		stepWeight >
-		0.003f;
+		0.018f;
 
 
 	stepPrinting.setStepInterval(
@@ -1558,66 +2022,23 @@ void ofApp::applyVisualStateParameters()
 
 
 	stepPrinting.setMixAmount(
+		isStepActive
+		?
 		visualState
 			.getStepMix()
+		:
+		0.0f
 	);
 
 
 	stepPrinting.setFeedbackAmount(
+		isStepActive
+		?
 		visualState
 			.getStepFeedback()
+		:
+		0.0f
 	);
-
-
-	// ============================================================
-	// FISHEYE
-	// ============================================================
-
-	const float fisheyeWeight =
-		visualState
-			.getFisheyeWeight();
-
-
-	isBassActive =
-		fisheyeWeight >
-		0.003f;
-
-
-	fisheye.setMaxDistortion(
-		visualState
-			.getFisheyeMaxDistortion()
-	);
-
-
-	fisheye.setBassLevel(
-		visualState
-			.getFisheyeBass()
-	);
-
-
-	fisheye.setDistortionStrength(
-		visualState
-			.getFisheyeDistortion()
-	);
-
-
-	fisheye.setPulseFrequency(
-		visualState
-			.getFisheyePulseFrequency()
-	);
-
-
-	// ============================================================
-	// CLEAN UP AFTER RESIDUE HAS ACTUALLY FINISHED
-	// ============================================================
-
-	if (
-		previousBlurActive &&
-		!isMotionBlurActive
-	)
-	{
-		motionBlur.clear();
-	}
 
 
 	if (
@@ -1629,14 +2050,72 @@ void ofApp::applyVisualStateParameters()
 	}
 
 
+	// ============================================================
+	// FISHEYE / BASS
+	// ============================================================
+
+	const float fisheyeWeight =
+		ofClamp(
+			visualState
+				.getFisheyeWeight(),
+			0.0f,
+			1.0f
+		);
+
+
+	isBassActive =
+		fisheyeWeight >
+		0.018f;
+
+
+	fisheye.setMaxDistortion(
+		visualState
+			.getFisheyeMaxDistortion()
+	);
+
+
+	fisheye.setBassLevel(
+		isBassActive
+		?
+		visualState
+			.getFisheyeBass()
+		:
+		0.0f
+	);
+
+
+	fisheye.setDistortionStrength(
+		isBassActive
+		?
+		visualState
+			.getFisheyeDistortion()
+		:
+		0.0f
+	);
+
+
+	fisheye.setPulseFrequency(
+		visualState
+			.getFisheyePulseFrequency()
+	);
+
+
+	if (
+		!isBassActive
+	)
+	{
+		fisheye.reset();
+	}
+
+
 	previousBlurActive =
 		isMotionBlurActive;
-
 
 	previousStepActive =
 		isStepActive;
 }
 
+//--------------------------------------------------------------
 //--------------------------------------------------------------
 //--------------------------------------------------------------
 //--------------------------------------------------------------
@@ -1649,7 +2128,7 @@ void ofApp::updateEffectHistories(
 		currentVideo ==
 			nullptr ||
 		!currentVideo
-			 ->isFrameNew()
+			->isFrameNew()
 	)
 	{
 		return;
@@ -1662,7 +2141,6 @@ void ofApp::updateEffectHistories(
 
 	videoFbo.begin();
 
-
 	ofClear(
 		0,
 		0,
@@ -1670,11 +2148,7 @@ void ofApp::updateEffectHistories(
 		255
 	);
 
-
-	ofSetColor(
-		255
-	);
-
+	ofSetColor(255);
 
 	currentVideo->draw(
 		0,
@@ -1682,7 +2156,6 @@ void ofApp::updateEffectHistories(
 		standardWidth,
 		standardHeight
 	);
-
 
 	videoFbo.end();
 
@@ -1736,9 +2209,15 @@ void ofApp::updateEffectHistories(
 		);
 
 
+	// IMPORTANT:
+	//
+	// Use the SAME threshold as applyVisualStateParameters().
+	//
+	// Previously this was 0.001, meaning MotionBlur could still
+	// create NEW history after the renderer considered Reverb off.
 	const bool blurControlActive =
 		blurWeight >
-		0.001f;
+		0.018f;
 
 
 	// ============================================================
@@ -1759,14 +2238,14 @@ void ofApp::updateEffectHistories(
 	// ============================================================
 	// MOTION BLUR HISTORY
 	//
-	// THIS IS THE IMPORTANT CHANGE.
+	// ACTIVE:
+	//     create history.
 	//
-	// Physical blur control active:
-	// generate new trail material.
+	// OFF:
+	//     create nothing.
 	//
-	// Physical blur control inactive:
-	// do NOT generate new trails;
-	// simply decay what is already there.
+	// applyVisualStateParameters() clears it on the transition
+	// to zero.
 	// ============================================================
 
 	if (
@@ -1777,12 +2256,6 @@ void ofApp::updateEffectHistories(
 			videoFbo
 				.getTexture()
 		);
-	}
-	else if (
-		motionBlur.hasVisibleResidue()
-	)
-	{
-		motionBlur.decayOnly();
 	}
 
 
@@ -1805,12 +2278,7 @@ void ofApp::updateEffectHistories(
 
 
 	// ============================================================
-	// MOTION BLUR + STEP PRINT
-	//
-	// Only contaminate NEW StepPrint captures with MotionBlur while
-	// the actual blur control is engaged.
-	//
-	// Residual blur by itself should not keep poisoning new prints.
+	// MOTION BLUR + STEP PRINT CAPTURE
 	// ============================================================
 
 	if (
@@ -1836,11 +2304,12 @@ void ofApp::updateEffectHistories(
 
 
 		float captureBlurAmount =
-			0.38f +
 			pair *
+			(
 				0.46f +
-			mutation *
-				0.10f;
+				mutation *
+					0.10f
+			);
 
 
 		captureBlurAmount +=
@@ -1849,90 +2318,50 @@ void ofApp::updateEffectHistories(
 				0.5f
 			)
 			*
-			0.10f;
+			0.08f;
 
 
 		captureBlurAmount =
 			ofClamp(
 				captureBlurAmount,
-				0.30f,
-				0.96f
+				0.0f,
+				0.72f
 			);
 
 
-		blendFbo(
-			videoFbo,
-			routeAFbo,
-			historySourceFbo,
-			captureBlurAmount
-		);
+		if (
+			captureBlurAmount >
+			0.001f
+		)
+		{
+			blendFbo(
+				videoFbo,
+				routeAFbo,
+				historySourceFbo,
+				captureBlurAmount
+			);
+		}
 	}
 
 
 	// ============================================================
-	// STEP PRINT + BASS
+	// IMPORTANT:
+	//
+	// DO NOT bake Fisheye into StepPrint history here.
+	//
+	// StepPrint history should remain a FULL-VISIBILITY temporal
+	// frame.
+	//
+	// The Delay+Bass renderer later takes that SAME StepPrinted
+	// world and creates the warped / unwarped horizontal splice.
+	//
+	// Baking Fisheye here and then warping it again was making the
+	// combination needlessly muddy.
 	// ============================================================
-
-	if (
-		isBassActive
-	)
-	{
-		fisheye.renderTo(
-			historySourceFbo
-				.getTexture(),
-			preWarpFbo
-		);
-
-
-		const float pair =
-			std::min(
-				bassWeight,
-				stepWeight
-			);
-
-
-		float captureWarpAmount =
-			0.22f +
-			pair *
-				0.58f +
-			mutation *
-				0.10f;
-
-
-		captureWarpAmount +=
-			(
-				drift -
-				0.5f
-			)
-			*
-			0.14f;
-
-
-		captureWarpAmount =
-			ofClamp(
-				captureWarpAmount,
-				0.16f,
-				0.94f
-			);
-
-
-		blendFbo(
-			historySourceFbo,
-			preWarpFbo,
-			mutationFbo,
-			captureWarpAmount
-		);
-
-
-		copyFbo(
-			mutationFbo,
-			historySourceFbo
-		);
-	}
 
 
 	// ============================================================
-	// CAPTURE PRINT
+	// CAPTURE STEP PRINT
 	// ============================================================
 
 	stepPrinting.update(
@@ -1940,7 +2369,11 @@ void ofApp::updateEffectHistories(
 			.getTexture()
 	);
 }
-
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
 //--------------------------------------------------------------
 //--------------------------------------------------------------
 //--------------------------------------------------------------
@@ -1949,103 +2382,32 @@ void ofApp::renderTemporalMutation(
 	ofFbo& destination
 )
 {
-	// ============================================================
-	// CLEAN
-	// ============================================================
+	auto smooth01 =
+		[](float value)
+		{
+			value =
+				ofClamp(
+					value,
+					0.0f,
+					1.0f
+				);
 
-	if (
-		!isMotionBlurActive &&
-		!isStepActive
-	)
-	{
-		copyFbo(
-			source,
-			destination
-		);
-
-
-		return;
-	}
-
-
-	// ============================================================
-	// MOTION BLUR ONLY
-	// ============================================================
-
-	if (
-		isMotionBlurActive &&
-		!isStepActive
-	)
-	{
-		copyFbo(
-			source,
-			destination
-		);
-
-
-		motionBlur.apply(
-			destination
-		);
-
-
-		return;
-	}
+			return
+				value *
+				value *
+				(
+					3.0f -
+					2.0f *
+						value
+				);
+		};
 
 
 	// ============================================================
-	// STEP PRINT ONLY
+	// CONTINUOUS WEIGHTS
 	// ============================================================
 
-	if (
-		!isMotionBlurActive &&
-		isStepActive
-	)
-	{
-		copyFbo(
-			source,
-			destination
-		);
-
-
-		stepPrinting.apply(
-			destination
-		);
-
-
-		return;
-	}
-
-
-	// ============================================================
-	// MOTION BLUR + STEP PRINT
-	//
-	// The StepPrint history already contains partially blurred
-	// captures because updateEffectHistories() changes what
-	// StepPrint remembers.
-	//
-	// Here the live world itself moves between:
-	//
-	// current footage
-	//     ↓
-	// temporal drag
-	//     ↓
-	// printed smeared history
-	//     ↓
-	// dark temporal residue
-	// ============================================================
-
-	copyFbo(
-		source,
-		routeAFbo
-	);
-
-
-	motionBlur.apply(
-		routeAFbo
-	);
-
-
-	const float blurWeight =
+	const float reverbWeight =
 		ofClamp(
 			visualState
 				.getMotionBlurWeight(),
@@ -2054,7 +2416,7 @@ void ofApp::renderTemporalMutation(
 		);
 
 
-	const float stepWeight =
+	const float delayWeight =
 		ofClamp(
 			visualState
 				.getStepPrintWeight(),
@@ -2063,18 +2425,165 @@ void ofApp::renderTemporalMutation(
 		);
 
 
-	const float overlap =
-		std::min(
-			blurWeight,
-			stepWeight
+	const float reverbAmount =
+		smooth01(
+			reverbWeight
 		);
 
 
-	const float direction =
+	const float delayAmount =
+		smooth01(
+			delayWeight
+		);
+
+
+	// ============================================================
+	// ABSOLUTE CLEAN STATE
+	// ============================================================
+
+	if (
+		reverbWeight <=
+			0.001f &&
+		delayWeight <=
+			0.001f
+	)
+	{
+		copyFbo(
+			source,
+			destination
+		);
+
+		return;
+	}
+
+
+	// ============================================================
+	// MOTION-BLUR WORLD
+	// ============================================================
+
+	copyFbo(
+		source,
+		routeAFbo
+	);
+
+
+	if (
+		reverbAmount >
+		0.001f
+	)
+	{
+		motionBlur.apply(
+			routeAFbo
+		);
+	}
+
+
+	// ============================================================
+	// STEP-PRINT WORLD
+	// ============================================================
+
+	copyFbo(
+		source,
+		routeBFbo
+	);
+
+
+	if (
+		delayAmount >
+		0.001f
+	)
+	{
+		stepPrinting.apply(
+			routeBFbo
+		);
+	}
+
+
+	// ============================================================
+	// BASIC TEMPORAL STATE
+	//
+	// NO RESIDUE OVERRIDE.
+	//
+	// Reverb controls MotionBlur.
+	// If Reverb = zero, blurContribution = zero.
+	// ============================================================
+
+	const float blurContribution =
+		reverbAmount;
+
+
+	blendFbo(
+		source,
+		routeAFbo,
+		preWarpTemporalFbo,
+		blurContribution
+	);
+
+
+	const float printContribution =
+		delayAmount *
+		(
+			1.0f -
+			reverbAmount *
+				0.32f
+		);
+
+
+	blendFbo(
+		preWarpTemporalFbo,
+		routeBFbo,
+		preWarpFbo,
+		printContribution
+	);
+
+
+	// ============================================================
+	// REVERB + DELAY OVERLAP
+	// ============================================================
+
+	const float rawOverlap =
+		std::min(
+			reverbWeight,
+			delayWeight
+		);
+
+
+	float accordionAmount =
+		ofMap(
+			rawOverlap,
+			0.025f,
+			0.58f,
+			0.0f,
+			1.0f,
+			true
+		);
+
+
+	accordionAmount =
+		smooth01(
+			accordionAmount
+		);
+
+
+	if (
+		accordionAmount <=
+		0.001f
+	)
+	{
+		copyFbo(
+			preWarpFbo,
+			destination
+		);
+
+		return;
+	}
+
+
+	const float overlap =
 		ofClamp(
 			visualState
-				.getTemporalDirection(),
-			-1.0f,
+				.getTemporalOverlap(),
+			0.0f,
 			1.0f
 		);
 
@@ -2088,6 +2597,15 @@ void ofApp::renderTemporalMutation(
 		);
 
 
+	const float direction =
+		ofClamp(
+			visualState
+				.getTemporalDirection(),
+			-1.0f,
+			1.0f
+		);
+
+
 	const float drift =
 		ofClamp(
 			visualState
@@ -2097,172 +2615,240 @@ void ofApp::renderTemporalMutation(
 		);
 
 
-	const float reverbDominance =
-		ofMap(
-			direction,
-			-1.0f,
-			1.0f,
-			1.0f,
-			0.0f,
-			true
+	// ============================================================
+	// BUILD VERTICAL TEMPORAL ACCORDION
+	// ============================================================
+
+	mutationFbo.begin();
+
+	ofClear(
+		0,
+		0,
+		0,
+		255
+	);
+
+	ofSetColor(255);
+
+	preWarpFbo.draw(
+		0,
+		0,
+		standardWidth,
+		standardHeight
+	);
+
+
+	const int sliceCount =
+		3 +
+		static_cast<int>(
+			accordionAmount *
+			11.0f
 		);
 
 
-	// ============================================================
-	// LIVE SMEAR
-	//
-	// Stronger than the previous combination.
-	// ============================================================
-
-	float liveSmearAmount =
-		0.34f +
-		reverbDominance *
-			0.38f +
-		overlap *
-			0.18f;
-
-
-	liveSmearAmount +=
-		(
-			drift -
-			0.5f
-		)
-		*
-		mutation *
-		0.12f;
-
-
-	liveSmearAmount =
-		ofClamp(
-			liveSmearAmount,
-			0.28f,
-			0.94f
+	const float sliceWidth =
+		standardWidth /
+		static_cast<float>(
+			std::max(
+				1,
+				sliceCount
+			)
 		);
+
+
+	const float time =
+		ofGetElapsedTimef();
+
+
+	for (
+		int i = 0;
+		i < sliceCount;
+		++i
+	)
+	{
+		const float normalized =
+			static_cast<float>(i)
+			/
+			std::max(
+				1.0f,
+				static_cast<float>(
+					sliceCount -
+					1
+				)
+			);
+
+
+		const float wave =
+			sin(
+				normalized *
+					PI *
+					(
+						2.0f +
+						overlap *
+							3.5f
+					)
+				+
+				time *
+					(
+						0.10f +
+						mutation *
+							0.18f
+					)
+				+
+				direction *
+					1.8f
+				+
+				drift *
+					2.5f
+			);
+
+
+		const bool chooseBlur =
+			(
+				wave +
+				direction *
+					0.55f
+			)
+			>
+			0.0f;
+
+
+		ofFbo& chosen =
+			chooseBlur
+			?
+			routeAFbo
+			:
+			routeBFbo;
+
+
+		const float displacement =
+			wave *
+			accordionAmount *
+			(
+				3.0f +
+				overlap *
+					58.0f
+			);
+
+
+		const float sourceX =
+			ofClamp(
+				i *
+					sliceWidth +
+					displacement,
+				0.0f,
+				std::max(
+					0.0f,
+					standardWidth -
+						sliceWidth
+				)
+			);
+
+
+		glEnable(
+			GL_SCISSOR_TEST
+		);
+
+
+		glScissor(
+			static_cast<int>(
+				i *
+					sliceWidth
+			),
+			0,
+			std::max(
+				1,
+				static_cast<int>(
+					sliceWidth +
+						2.0f
+				)
+			),
+			static_cast<int>(
+				standardHeight
+			)
+		);
+
+
+		ofSetColor(255);
+
+
+		chosen
+			.getTexture()
+			.drawSubsection(
+				i *
+					sliceWidth,
+				0,
+
+				sliceWidth +
+					2.0f,
+				standardHeight,
+
+				sourceX,
+				0,
+
+				sliceWidth +
+					2.0f,
+				standardHeight
+			);
+
+
+		glDisable(
+			GL_SCISSOR_TEST
+		);
+	}
+
+
+	ofSetColor(255);
+
+	mutationFbo.end();
 
 
 	blendFbo(
-		source,
-		routeAFbo,
+		preWarpFbo,
+		mutationFbo,
 		destination,
-		liveSmearAmount
+		accordionAmount
 	);
-
-
-	// ============================================================
-	// PRINT THE ALREADY-SMEARED HISTORY
-	// ============================================================
-
-	stepPrinting.apply(
-		destination
-	);
-
-
-	// ============================================================
-
-	// ============================================================
-
-	const float darkEntry =
-		ofMap(
-			overlap,
-			0.18f,
-			0.85f,
-			0.0f,
-			1.0f,
-			true
-		);
-
-
-	if (
-		darkEntry >
-		0.001f
-	)
-	{
-		mutationFbo.begin();
-
-
-		ofClear(
-			0,
-			0,
-			0,
-			255
-		);
-
-
-		mutationFbo.end();
-
-
-		motionBlur.apply(
-			mutationFbo
-		);
-
-
-		// ========================================================
-		// BREATHING / EVER-CHANGING PRESENCE
-		// ========================================================
-
-		const float breathing =
-			0.62f +
-			(
-				drift -
-				0.5f
-			)
-			*
-			0.48f;
-
-
-		float darkAmount =
-			darkEntry *
-			(
-				0.08f +
-				mutation *
-					0.14f
-			)
-			*
-			breathing;
-
-
-		darkAmount =
-			ofClamp(
-				darkAmount,
-				0.0f,
-				0.22f
-			);
-
-
-		if (
-			darkAmount >
-			0.002f
-		)
-		{
-			blendFbo(
-				destination,
-				mutationFbo,
-				interactionScratchFbo,
-				darkAmount
-			);
-
-
-			copyFbo(
-				interactionScratchFbo,
-				destination
-			);
-		}
-	}
 }
 //--------------------------------------------------------------
-void ofApp::applyInteractionMemory(ofFbo& target)
+//--------------------------------------------------------------
+void ofApp::applyInteractionMemory(
+	ofFbo& target
+)
 {
 	const float mutation =
-		visualState
-			.getMutationAmount();
+		ofClamp(
+			visualState
+				.getMutationAmount(),
+			0.0f,
+			1.0f
+		);
 
-	if (mutation <= 0.003f)
+
+	// ============================================================
+	// NO MEANINGFUL COMBINATION = NO MEMORY
+	// ============================================================
+
+	if (
+		mutation <
+		0.08f
+	)
 	{
-		if (interactionMemoryReady)
+		if (
+			interactionMemoryReady
+		)
 		{
 			interactionMemoryFbo.begin();
-			ofClear(0, 0, 0, 255);
+
+			ofClear(
+				0,
+				0,
+				0,
+				255
+			);
+
 			interactionMemoryFbo.end();
+
 
 			interactionMemoryReady =
 				false;
@@ -2271,42 +2857,65 @@ void ofApp::applyInteractionMemory(ofFbo& target)
 		return;
 	}
 
-	if (!interactionMemoryReady)
+
+	// ============================================================
+	// FIRST FRAME
+	// ============================================================
+
+	if (
+		!interactionMemoryReady
+	)
 	{
 		copyFbo(
 			target,
 			interactionMemoryFbo
 		);
 
+
 		interactionMemoryReady =
 			true;
 
+
 		return;
 	}
+
 
 	const float drift =
 		visualState
 			.getMutationDrift();
 
+
+	// ============================================================
+	// SHORT MEMORY
+	//
+	// Strong enough to give combinations texture,
+	// not strong enough to feel permanently stuck.
+	// ============================================================
+
 	float memoryOverlay =
 		ofLerp(
-			0.055f,
-			0.31f,
+			0.025f,
+			0.14f,
 			mutation
 		);
 
+
 	memoryOverlay +=
-		(drift -
-		 0.5f)
+		(
+			drift -
+			0.5f
+		)
 		*
-		0.075f;
+		0.025f;
+
 
 	memoryOverlay =
 		ofClamp(
 			memoryOverlay,
-			0.035f,
-			0.34f
+			0.0f,
+			0.16f
 		);
+
 
 	blendFbo(
 		target,
@@ -2315,30 +2924,26 @@ void ofApp::applyInteractionMemory(ofFbo& target)
 		memoryOverlay
 	);
 
+
 	copyFbo(
 		interactionScratchFbo,
 		target
 	);
 
-	float captureAmount =
+
+	// ============================================================
+	// UPDATE MEMORY QUICKLY
+	//
+	// This prevents one dramatic old state hanging around.
+	// ============================================================
+
+	const float captureAmount =
 		ofLerp(
+			0.55f,
 			0.34f,
-			0.12f,
 			mutation
 		);
 
-	captureAmount +=
-		(0.5f -
-		 drift)
-		*
-		0.04f;
-
-	captureAmount =
-		ofClamp(
-			captureAmount,
-			0.10f,
-			0.38f
-		);
 
 	blendFbo(
 		interactionMemoryFbo,
@@ -2347,12 +2952,17 @@ void ofApp::applyInteractionMemory(ofFbo& target)
 		captureAmount
 	);
 
+
 	copyFbo(
 		routeAFbo,
 		interactionMemoryFbo
 	);
 }
 
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
 //--------------------------------------------------------------
 //--------------------------------------------------------------
 //--------------------------------------------------------------
@@ -2370,11 +2980,36 @@ void ofApp::buildProcessedFrame(
 
 
 	// ============================================================
+	// SMOOTHING HELPER
+	// ============================================================
+
+	auto smooth01 =
+		[](float value)
+		{
+			value =
+				ofClamp(
+					value,
+					0.0f,
+					1.0f
+				);
+
+
+			return
+				value *
+				value *
+				(
+					3.0f -
+					2.0f *
+						value
+				);
+		};
+
+
+	// ============================================================
 	// CLEAN SOURCE
 	// ============================================================
 
 	videoFbo.begin();
-
 
 	ofClear(
 		0,
@@ -2383,11 +3018,7 @@ void ofApp::buildProcessedFrame(
 		255
 	);
 
-
-	ofSetColor(
-		255
-	);
-
+	ofSetColor(255);
 
 	currentVideo->draw(
 		0,
@@ -2396,39 +3027,14 @@ void ofApp::buildProcessedFrame(
 		standardHeight
 	);
 
-
 	videoFbo.end();
 
 
 	// ============================================================
-	// TEMPORAL WORLD
+	// CONTINUOUS FAMILY WEIGHTS
 	// ============================================================
 
-	renderTemporalMutation(
-		videoFbo,
-		intermediateFbo
-	);
-
-
-	// ============================================================
-	// NO BASS
-	// ============================================================
-
-	if (
-		!isBassActive
-	)
-	{
-		copyFbo(
-			intermediateFbo,
-			processedFbo
-		);
-
-
-		return;
-	}
-
-
-	const float blurWeight =
+	const float reverbWeight =
 		ofClamp(
 			visualState
 				.getMotionBlurWeight(),
@@ -2437,7 +3043,7 @@ void ofApp::buildProcessedFrame(
 		);
 
 
-	const float stepWeight =
+	const float delayWeight =
 		ofClamp(
 			visualState
 				.getStepPrintWeight(),
@@ -2455,12 +3061,21 @@ void ofApp::buildProcessedFrame(
 		);
 
 
-	const float mutation =
-		ofClamp(
-			visualState
-				.getMutationAmount(),
-			0.0f,
-			1.0f
+	const float reverbAmount =
+		smooth01(
+			reverbWeight
+		);
+
+
+	const float delayAmount =
+		smooth01(
+			delayWeight
+		);
+
+
+	const float bassAmount =
+		smooth01(
+			bassWeight
 		);
 
 
@@ -2473,372 +3088,880 @@ void ofApp::buildProcessedFrame(
 		);
 
 
-	const bool hasTemporalEffect =
-		isMotionBlurActive ||
-		isStepActive;
-
-
 	// ============================================================
-	// BASS ONLY
+	// PAIR / TRIPLE TRANSITION AMOUNTS
+	//
+	// These are continuous.
+	//
+	// The unique combination grammar gradually emerges as the
+	// corresponding effects overlap.
 	// ============================================================
 
-	if (
-		!hasTemporalEffect
-	)
-	{
-		fisheye.renderTo(
-			videoFbo
-				.getTexture(),
-			processedFbo
+	float delayBassAmount =
+		ofMap(
+			std::min(
+				delayWeight,
+				bassWeight
+			),
+			0.025f,
+			0.60f,
+			0.0f,
+			1.0f,
+			true
 		);
 
 
-		return;
-	}
+	delayBassAmount =
+		smooth01(
+			delayBassAmount
+		);
+
+
+	float reverbBassAmount =
+		ofMap(
+			std::min(
+				reverbWeight,
+				bassWeight
+			),
+			0.025f,
+			0.60f,
+			0.0f,
+			1.0f,
+			true
+		);
+
+
+	reverbBassAmount =
+		smooth01(
+			reverbBassAmount
+		);
+
+
+	float tripleAmount =
+		ofMap(
+			std::min(
+				reverbWeight,
+				std::min(
+					delayWeight,
+					bassWeight
+				)
+			),
+			0.04f,
+			0.68f,
+			0.0f,
+			1.0f,
+			true
+		);
+
+
+	tripleAmount =
+		smooth01(
+			tripleAmount
+		);
 
 
 	// ============================================================
-	// BASS + TEMPORAL EFFECTS
+	// TEMPORAL WORLD
 	//
-	// The default combined state is now the LENS BENDING THE
-	// TEMPORAL WORLD.
-	//
-	// This should feel considerably less like two effects being
-	// crossfaded together.
+	// Clean -> Blur -> Step -> Vertical accordion all transition
+	// continuously inside this call.
 	// ============================================================
 
-	fisheye.renderTo(
-		intermediateFbo
-			.getTexture(),
-		routeBFbo
+	renderTemporalMutation(
+		videoFbo,
+		preWarpTemporalFbo
 	);
 
 
+
+	// ============================================================
+	// FULL-FRAME BASS / FISHEYE WORLD
+	//
+	// IMPORTANT:
+	//
+	// Fisheye is NOT an alpha overlay.
+	//
+	// The temporal world itself is passed through the fisheye.
+	//
+	// When Bass = 0, FisheyeLens returns its input unchanged.
+	// As Bass rises, that SAME image progressively bends.
+	//
+	// Therefore there is never:
+	//
+	// clean image underneath
+	// +
+	// transparent warped image on top
+	//
+	// There is only one complete image.
+	// ============================================================
+
+	fisheye.renderTo(
+		preWarpTemporalFbo.getTexture(),
+		routeAFbo
+	);
+
+
+	// ============================================================
+	// THIS IS THE COMPLETE BASE VISUAL STATE
+	// ============================================================
+
 	copyFbo(
-		routeBFbo,
+		routeAFbo,
 		processedFbo
 	);
 
 
 	// ============================================================
-	// RETAIN A TRACE OF PRESENT-TIME LENS AT WEAKER COMBINATIONS
+	// DELAY + BASS
 	//
-	// Only enough to preserve ancestry with the normal fisheye.
+	// DENSE HORIZONTAL TIME-CRATER
+	//
+	// IMPORTANT:
+	//
+	// 1. The ENTIRE image is delayed / StepPrinted first.
+	//
+	// 2. The ENTIRE image is then Fisheye warped.
+	//
+	// 3. There is NO untouched-video layer underneath.
+	//
+	// 4. Horizontal territories alternate between two spatial
+	//    interpretations of the SAME delayed + warped image.
+	//
+	// 5. Much denser slicing than the recent version.
 	// ============================================================
 
-	fisheye.renderTo(
-		videoFbo
-			.getTexture(),
-		routeAFbo
-	);
-
-
-	const float strongestTemporal =
-		std::max(
-			blurWeight,
-			stepWeight
-		);
-
-
-	const float pairStrength =
-		std::min(
-			bassWeight,
-			strongestTemporal
-		);
-
-
-	const float presentTrace =
-		ofClamp(
-			(
-				1.0f -
-				pairStrength
-			)
-			*
-			0.24f,
-			0.0f,
-			0.24f
-		);
-
-
 	if (
-		presentTrace >
-		0.002f
+		delayBassAmount >
+		0.001f
 	)
 	{
+		// ========================================================
+		// SHARED DELAYED TEMPORAL WORLD
+		// ========================================================
+
+		copyFbo(
+			videoFbo,
+			routeBFbo
+		);
+
+
+		stepPrinting.apply(
+			routeBFbo
+		);
+
+
+		// ========================================================
+		// WARP THE COMPLETE DELAYED WORLD
+		//
+		// routeAFbo is now:
+		//
+		// DELAYED
+		// +
+		// FISHEYE
+		//
+		// There is no clean image involved.
+		// ========================================================
+
+		fisheye.renderTo(
+			routeBFbo.getTexture(),
+			routeAFbo
+		);
+
+
+		// ========================================================
+		// FISHEYE CENTRE
+		// ========================================================
+
+		const float centreX =
+			standardWidth *
+			(
+				0.5f +
+				(
+					drift -
+					0.5f
+				)
+				*
+				0.12f
+			);
+
+
+		const float centreY =
+			standardHeight *
+			(
+				0.5f +
+				sin(
+					ofGetElapsedTimef() *
+					0.31f
+				)
+				*
+				0.055f *
+				bassAmount
+			);
+
+
+		// ========================================================
+		// SECOND SPATIAL INTERPRETATION
+		//
+		// SAME delayed + fisheye frame.
+		//
+		// Just pulled slightly harder around the lens centre.
+		// ========================================================
+
+		const float secondaryScale =
+			1.0f +
+			bassAmount *
+			delayBassAmount *
+			0.11f;
+
+
+		const float secondaryWidth =
+			standardWidth *
+			secondaryScale;
+
+
+		const float secondaryHeight =
+			standardHeight *
+			secondaryScale;
+
+
+		mutationFbo.begin();
+
+
+		ofClear(
+			0,
+			0,
+			0,
+			255
+		);
+
+
+		ofSetColor(255);
+
+
+		routeAFbo.draw(
+			centreX -
+				secondaryWidth *
+					0.5f,
+			centreY -
+				secondaryHeight *
+					0.5f,
+			secondaryWidth,
+			secondaryHeight
+		);
+
+
+		mutationFbo.end();
+
+
+		// ========================================================
+		// BASE IMAGE
+		//
+		// IMPORTANT:
+		//
+		// Start from FISHEYE.
+		//
+		// Do NOT start from routeBFbo, because routeBFbo is the
+		// unwarped delayed image and would recreate the problem
+		// you are seeing now.
+		// ========================================================
+
+		preWarpFbo.begin();
+
+
+		ofClear(
+			0,
+			0,
+			0,
+			255
+		);
+
+
+		ofSetColor(255);
+
+
+		routeAFbo.draw(
+			0,
+			0,
+			standardWidth,
+			standardHeight
+		);
+
+
+		// ========================================================
+		// DENSER SPLICE FIELD
+		//
+		// Recent version:
+		//
+		//     5 -> 14 bands
+		//
+		// New version:
+		//
+		//     12 -> 36 bands
+		//
+		// So it becomes increasingly fragmented as the combination
+		// strengthens.
+		// ========================================================
+
+		const int rings =
+			12 +
+			static_cast<int>(
+				delayBassAmount *
+				24.0f
+			);
+
+
+		const float maxRadius =
+			sqrt(
+				standardWidth *
+					standardWidth +
+				standardHeight *
+					standardHeight
+			)
+			*
+			0.62f;
+
+
+		// ========================================================
+		// HORIZONTAL NESTED SCISSOR TERRITORIES
+		// ========================================================
+
+		for (
+			int ring = rings;
+			ring >= 0;
+			--ring
+		)
+		{
+			const float t =
+				static_cast<float>(
+					ring
+				)
+				/
+				static_cast<float>(
+					std::max(
+						1,
+						rings
+					)
+				);
+
+
+			const float radius =
+				maxRadius *
+				t;
+
+
+			// ====================================================
+			// MORE NUMEROUS, SLIGHTLY FINER HORIZONTAL SLICES
+			// ====================================================
+
+			const float bandHeight =
+				std::max(
+					5.0f,
+					radius *
+						0.52f
+				);
+
+
+			const float y =
+				ofClamp(
+					centreY -
+						bandHeight *
+							0.5f,
+					0.0f,
+					std::max(
+						0.0f,
+						standardHeight -
+							bandHeight
+					)
+				);
+
+
+			// ====================================================
+			// OPENGL SCISSOR
+			// ====================================================
+
+			glEnable(
+				GL_SCISSOR_TEST
+			);
+
+
+			const int scissorX =
+				0;
+
+
+			const int scissorY =
+				static_cast<int>(
+					standardHeight -
+					(
+						y +
+						bandHeight
+					)
+				);
+
+
+			const int scissorWidth =
+				static_cast<int>(
+					standardWidth
+				);
+
+
+			const int scissorHeight =
+				std::max(
+					1,
+					static_cast<int>(
+						bandHeight
+					)
+				);
+
+
+			glScissor(
+				scissorX,
+				std::max(
+					0,
+					scissorY
+				),
+				scissorWidth,
+				scissorHeight
+			);
+
+
+			// ====================================================
+			// ALTERNATE BETWEEN TWO WARPED VERSIONS
+			//
+			// routeAFbo:
+			// normal delayed + fisheye
+			//
+			// mutationFbo:
+			// SAME delayed + fisheye frame, pulled harder
+			//
+			// Neither one is clean / untouched footage.
+			// ====================================================
+
+			ofFbo& chosen =
+				(
+					ring %
+					2 ==
+					0
+				)
+				?
+				routeAFbo
+				:
+				mutationFbo;
+
+
+			// ====================================================
+			// LOCAL SLICE PULL
+			//
+			// This gives every nested territory a slightly different
+			// spatial magnification.
+			//
+			// Multiply by delayBassAmount so it gradually appears
+			// rather than snapping into a fully fragmented state.
+			// ====================================================
+
+			const float parityPull =
+				(
+					ring %
+					2 ==
+					0
+				)
+				?
+				0.11f
+				:
+				0.20f;
+
+
+			const float scale =
+				1.0f +
+				(
+					1.0f -
+					t
+				)
+				*
+				bassAmount *
+				delayBassAmount *
+				parityPull;
+
+
+			const float drawWidth =
+				standardWidth *
+				scale;
+
+
+			const float drawHeight =
+				standardHeight *
+				scale;
+
+
+			// ====================================================
+			// FULL OPACITY
+			// ====================================================
+
+			ofSetColor(255);
+
+
+			chosen.draw(
+				centreX -
+					drawWidth *
+						0.5f,
+				centreY -
+					drawHeight *
+						0.5f,
+				drawWidth,
+				drawHeight
+			);
+
+
+			// ====================================================
+			// IMPORTANT:
+			//
+			// Never leave scissor enabled after this territory.
+			// ====================================================
+
+			glDisable(
+				GL_SCISSOR_TEST
+			);
+		}
+
+
+		ofSetColor(255);
+
+
+		preWarpFbo.end();
+
+
+		// ========================================================
+		// COMPLETE RESULT
+		//
+		// Again: NO alpha blend over a clean image.
+		//
+		// The strength of the splice has already been encoded into
+		// the number of territories and their spatial displacement.
+		// ========================================================
+
+		copyFbo(
+			preWarpFbo,
+			processedFbo
+		);
+	}
+
+		// ========================================================
+		// EASE INTO / OUT OF THE SPLICE
+		//
+		// Keep this because you asked for gradual transitions.
+		// ========================================================
+
+
+	// ============================================================
+	// ALL THREE
+	//
+	// IMPORTANT CHANGE:
+	//
+	// Bass NO LONGER dominates the whole state.
+	//
+	// The temporal structure stays primary.
+	//
+	// Bass only bends it enough to make the collapse spatial.
+	//
+	// This specifically fixes:
+	//
+	// "giant faded-out fisheye".
+	// ============================================================
+
+	if (
+		tripleAmount >
+		0.001f
+	)
+	{
+		// --------------------------------------------------------
+		// TEMPORAL ACCORDION IS THE BASE
+		// --------------------------------------------------------
+
+		copyFbo(
+			preWarpTemporalFbo,
+			routeBFbo
+		);
+
+
+		// --------------------------------------------------------
+		// WARP THAT TEMPORAL WORLD
+		// --------------------------------------------------------
+
+		fisheye.renderTo(
+			routeBFbo.getTexture(),
+			mutationFbo
+		);
+
+
+		// --------------------------------------------------------
+		// VERY IMPORTANT:
+		//
+		// Only a restricted amount of fisheye enters the complete
+		// three-way state.
+		//
+		// Max = roughly 30%.
+		//
+		// It should deform the temporal world, not swallow it.
+		// --------------------------------------------------------
+
+		const float tripleBassInfluence =
+			bassAmount *
+			0.30f;
+
+
+		blendFbo(
+			routeBFbo,
+			mutationFbo,
+			preWarpFbo,
+			tripleBassInfluence
+		);
+
+
+		// ========================================================
+		// DELAYED WORLD FOR FULL-OPACITY HORIZONTAL RUPTURES
+		// ========================================================
+
+		copyFbo(
+			videoFbo,
+			routeBFbo
+		);
+
+
+		stepPrinting.apply(
+			routeBFbo
+		);
+
+
+		fisheye.renderTo(
+			routeBFbo.getTexture(),
+			routeAFbo
+		);
+
+
+		preWarpFbo.begin();
+
+
+		const float centreX =
+			standardWidth *
+			(
+				0.5f +
+				(
+					drift -
+					0.5f
+				)
+				*
+				0.08f
+			);
+
+
+		const float centreY =
+			standardHeight *
+			(
+				0.5f +
+				sin(
+					ofGetElapsedTimef() *
+						0.27f
+				)
+				*
+				0.035f *
+				bassAmount
+			);
+
+
+		const int ruptureBands =
+			4 +
+			static_cast<int>(
+				tripleAmount *
+				18.0f
+			);
+
+
+		const float maxRadius =
+			sqrt(
+				standardWidth *
+					standardWidth +
+				standardHeight *
+					standardHeight
+			)
+			*
+			0.52f;
+
+
+		for (
+			int band = ruptureBands;
+			band >= 0;
+			--band
+		)
+		{
+			const float t =
+				static_cast<float>(
+					band
+				)
+				/
+				static_cast<float>(
+					std::max(
+						1,
+						ruptureBands
+					)
+				);
+
+
+			const float radius =
+				maxRadius *
+				t;
+
+
+			const float bandHeight =
+				std::max(
+					7.0f,
+					radius *
+						0.22f
+				);
+
+
+			const float y =
+				ofClamp(
+					centreY -
+						bandHeight *
+							0.5f,
+					0.0f,
+					std::max(
+						0.0f,
+						standardHeight -
+							bandHeight
+					)
+				);
+
+
+			glEnable(
+				GL_SCISSOR_TEST
+			);
+
+
+			const int scissorY =
+				static_cast<int>(
+					standardHeight -
+					(
+						y +
+						bandHeight
+					)
+				);
+
+
+			glScissor(
+				0,
+				std::max(
+					0,
+					scissorY
+				),
+				static_cast<int>(
+					standardWidth
+				),
+				std::max(
+					1,
+					static_cast<int>(
+						bandHeight
+					)
+				)
+			);
+
+
+			// Full opacity.
+			ofSetColor(255);
+
+
+			const float scale =
+				1.0f +
+				(
+					1.0f -
+					t
+				)
+				*
+				bassAmount *
+				0.10f;
+
+
+			const float drawWidth =
+				standardWidth *
+				scale;
+
+
+			const float drawHeight =
+				standardHeight *
+				scale;
+
+
+			// Both sources are delayed.
+			//
+			// Alternate spatial interpretation only.
+			ofFbo& chosen =
+				(
+					band %
+					2 ==
+					0
+				)
+				?
+				routeAFbo
+				:
+				routeBFbo;
+
+
+			chosen.draw(
+				centreX -
+					drawWidth *
+						0.5f,
+				centreY -
+					drawHeight *
+						0.5f,
+				drawWidth,
+				drawHeight
+			);
+
+
+			glDisable(
+				GL_SCISSOR_TEST
+			);
+		}
+
+
+		ofSetColor(255);
+
+		preWarpFbo.end();
+
+
+		// --------------------------------------------------------
+		// EASE INTO / OUT OF THE THREE-WAY STATE.
+		// --------------------------------------------------------
+
 		blendFbo(
 			processedFbo,
-			routeAFbo,
-			mutationFbo,
-			presentTrace
+			preWarpFbo,
+			interactionScratchFbo,
+			tripleAmount
 		);
 
 
 		copyFbo(
-			mutationFbo,
+			interactionScratchFbo,
 			processedFbo
 		);
 	}
 
 
 	// ============================================================
-	// MOTION BLUR + BASS
+	// IMPORTANT:
 	//
-	// LENS DRAG.
+	// DO NOT applyInteractionMemory() here.
 	//
-	// The warped temporal world appears to possess inertia.
+	// The temporal effects already contain history.
+	//
+	// Additional alpha-memory was muddying / fading the image and
+	// making the all-three state lose visibility.
 	// ============================================================
 
-	if (
-		isMotionBlurActive &&
-		!isStepActive
-	)
-	{
-		const float blurBass =
-			std::min(
-				blurWeight,
-				bassWeight
-			);
-
-
-		const float lagAmount =
-			blurBass *
-			(
-				0.35f +
-				mutation *
-					0.65f
-			);
-
-
-		if (
-			lagAmount >
-			0.02f
-		)
-		{
-			interactionScratchFbo.begin();
-
-
-			ofClear(
-				0,
-				0,
-				0,
-				255
-			);
-
-
-			ofSetColor(
-				255
-			);
-
-
-			processedFbo.draw(
-				0,
-				0,
-				standardWidth,
-				standardHeight
-			);
-
-
-			ofEnableBlendMode(
-				OF_BLENDMODE_SCREEN
-			);
-
-
-			const float direction =
-				(
-					drift -
-					0.5f
-				)
-				*
-				2.0f;
-
-
-			const float displacement =
-				direction *
-				(
-					12.0f +
-					blurBass *
-						42.0f
-				);
-
-
-			const float residueAlpha =
-				lagAmount *
-				86.0f;
-
-
-			ofSetColor(
-				255,
-				255,
-				255,
-				residueAlpha
-			);
-
-
-			routeBFbo.draw(
-				displacement,
-				0,
-				standardWidth,
-				standardHeight
-			);
-
-
-			ofSetColor(
-				255,
-				255,
-				255,
-				residueAlpha *
-					0.48f
-			);
-
-
-			routeBFbo.draw(
-				displacement *
-					-0.42f,
-				displacement *
-					0.12f,
-				standardWidth,
-				standardHeight
-			);
-
-
-			ofDisableBlendMode();
-
-
-			ofSetColor(
-				255
-			);
-
-
-			interactionScratchFbo.end();
-
-
-			copyFbo(
-				interactionScratchFbo,
-				processedFbo
-			);
-		}
-	}
-
-
-	// ============================================================
-	// ALL THREE
-	//
-	// Stronger version of the same dark temporal residue introduced
-	// by MotionBlur + StepPrint.
-	//
-	// Bass bends it rather than introducing another unrelated
-	// visual effect.
-	// ============================================================
-
-	if (
-		isMotionBlurActive &&
-		isStepActive
-	)
-	{
-		const float tripleStrength =
-			std::min(
-				bassWeight,
-				std::min(
-					blurWeight,
-					stepWeight
-				)
-			);
-
-
-		const float thresholdedTriple =
-			ofMap(
-				tripleStrength,
-				0.24f,
-				1.0f,
-				0.0f,
-				1.0f,
-				true
-			);
-
-
-		if (
-			thresholdedTriple >
-			0.001f
-		)
-		{
-			mutationFbo.begin();
-
-
-			ofClear(
-				0,
-				0,
-				0,
-				255
-			);
-
-
-			mutationFbo.end();
-
-
-			motionBlur.apply(
-				mutationFbo
-			);
-
-
-			fisheye.renderTo(
-				mutationFbo
-					.getTexture(),
-				preWarpFbo
-			);
-
-
-			const float breathing =
-				0.62f +
-				(
-					drift -
-					0.5f
-				)
-				*
-				0.50f;
-
-
-			float undertowAmount =
-				thresholdedTriple *
-				(
-					0.08f +
-					mutation *
-						0.22f
-				)
-				*
-				breathing;
-
-
-			undertowAmount =
-				ofClamp(
-					undertowAmount,
-					0.0f,
-					0.28f
-				);
-
-
-			if (
-				undertowAmount >
-				0.002f
-			)
-			{
-				blendFbo(
-					processedFbo,
-					preWarpFbo,
-					interactionScratchFbo,
-					undertowAmount
-				);
-
-
-				copyFbo(
-					interactionScratchFbo,
-					processedFbo
-				);
-			}
-		}
-	}
+	ofSetColor(255);
 }
 
-//--------------------------------------------------------------
+
 //--------------------------------------------------------------
 void ofApp::drawDryProcessedComposite(
 	float x,
@@ -2847,45 +3970,21 @@ void ofApp::drawDryProcessedComposite(
 	float height
 )
 {
-	const bool anythingActive =
-		isMotionBlurActive ||
-		isStepActive ||
-		isBassActive;
-
-
 	ofSetColor(255);
 
 
-	// ============================================================
-	// PROCESSED WORLD
+	// processedFbo now always contains the complete visual state:
 	//
-	// When an effect is active, this IS the image.
+	// clean
+	// ->
+	// individual effect
+	// ->
+	// pair interaction
+	// ->
+	// three-way interaction
 	//
-	// Do not put untouched video underneath Fisheye.
-	// Do not dilute combinations with a separate dry layer here.
-	// ============================================================
-
-	if (
-		anythingActive
-	)
-	{
-		processedFbo.draw(
-			x,
-			y,
-			width,
-			height
-		);
-
-
-		return;
-	}
-
-
-	// ============================================================
-	// CLEAN DOCUMENTARY WORLD
-	// ============================================================
-
-	videoFbo.draw(
+	// All transitions are already continuous before we reach draw.
+	processedFbo.draw(
 		x,
 		y,
 		width,

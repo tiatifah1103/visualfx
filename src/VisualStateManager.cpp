@@ -189,6 +189,7 @@ float VisualStateManager::wakeAmount(
 
 
 //--------------------------------------------------------------
+//--------------------------------------------------------------
 void VisualStateManager::update(
 	float deltaTime
 )
@@ -202,65 +203,93 @@ void VisualStateManager::update(
 
 
 	// ============================================================
-	// REVERB
+	// INTENSITY CURVE
+	//
+	// IMPORTANT:
+	//
+	// The old visualCurve() is intentionally extremely eager:
+	//
+	// pow(value, 0.30)
+	//
+	// That is useful in some places but makes 0.15 and 0.80 look
+	// much too similar.
+	//
+	// For FAMILY STRENGTH we use a slower curve so controller
+	// travel actually has a visible minimum -> maximum progression.
+	// ============================================================
+
+	auto familyCurve =
+		[](float value)
+		{
+			value =
+				ofClamp(
+					value,
+					0.0f,
+					1.0f
+				);
+
+			if (
+				value <
+				0.015f
+			)
+			{
+				return 0.0f;
+			}
+
+			value =
+				ofMap(
+					value,
+					0.015f,
+					1.0f,
+					0.0f,
+					1.0f,
+					true
+				);
+
+			return pow(
+				value,
+				1.20f
+			);
+		};
+
+
+	// ============================================================
+	// REVERB / MOTION BLUR
 	// ============================================================
 
 	const float wetDrive =
-		visualCurve(
+		familyCurve(
 			reverbWet
 		);
 
-
 	const float roomDrive =
-		visualCurve(
+		familyCurve(
 			reverbRoom
 		);
 
-
-	// Width and Damping are bipolar around the default 0.5.
-	//
-	// Moving EITHER away from the starting position should visibly
-	// wake MotionBlur.
-	const float widthMovement =
-		ofClamp(
-			abs(
-				reverbWidth -
-				0.5f
-			)
-			*
-			2.0f,
-			0.0f,
-			1.0f
-		);
-
-
-	const float dampingMovement =
-		ofClamp(
-			abs(
-				reverbDamping -
-				0.5f
-			)
-			*
-			2.0f,
-			0.0f,
-			1.0f
-		);
-
-
 	const float widthDrive =
-		visualCurve(
-			widthMovement
-		)
-		*
-		0.82f;
-
+		familyCurve(
+			reverbWidth
+		);
 
 	const float dampingDrive =
-		visualCurve(
-			dampingMovement
-		)
-		*
-		0.82f;
+		familyCurve(
+			reverbDamping
+		);
+
+
+	// Minimum on ALL Reverb controls must mean OFF.
+	//
+	// We no longer interpret width / damping as bipolar around 0.5.
+	const bool reverbControlsOff =
+		reverbWet <
+			0.015f &&
+		reverbRoom <
+			0.015f &&
+		reverbWidth <
+			0.015f &&
+		reverbDamping <
+			0.015f;
 
 
 	float reverbTarget =
@@ -270,36 +299,57 @@ void VisualStateManager::update(
 				0.88f
 		);
 
+	reverbTarget =
+		std::max(
+			reverbTarget,
+			widthDrive *
+				0.78f
+		);
 
 	reverbTarget =
 		std::max(
 			reverbTarget,
-			widthDrive
+			dampingDrive *
+				0.62f
 		);
 
 
-	reverbTarget =
-		std::max(
-			reverbTarget,
-			dampingDrive
-		);
+	// Controller movement can still give a tiny expressive bump,
+	// but it must never dominate the actual knob position.
+	if (
+		!reverbControlsOff
+	)
+	{
+		reverbTarget =
+			std::max(
+				reverbTarget,
+				reverbTouch *
+					0.18f
+			);
 
+		reverbTarget +=
+			reverbGesture *
+			0.055f;
 
-	reverbTarget =
-		std::max(
-			reverbTarget,
-			reverbTouch
-		);
+		reverbTarget +=
+			delayToReverbAccent *
+			0.06f;
+	}
+	else
+	{
+		// Turning DOWN must not create another effect impulse.
+		reverbTouch =
+			0.0f;
 
+		reverbGesture =
+			0.0f;
 
-	reverbTarget +=
-		reverbGesture *
-		0.18f;
+		delayToReverbAccent =
+			0.0f;
 
-
-	reverbTarget +=
-		delayToReverbAccent *
-		0.16f;
+		reverbTarget =
+			0.0f;
+	}
 
 
 	reverbTarget =
@@ -311,75 +361,93 @@ void VisualStateManager::update(
 
 
 	// ============================================================
-	// DELAY
+	// DELAY / STEP PRINT
 	// ============================================================
 
 	const float sendDrive =
-		visualCurve(
+		familyCurve(
 			dubSend
 		);
 
-
 	const float feedbackDrive =
-		visualCurve(
+		familyCurve(
 			delayFeedback
 		);
 
 
-	// 320ms is our neutral/default delay-time state.
+	// Delay time modifies an active Delay.
 	//
-	// Moving Delay Time away from there can now sustain StepPrint.
-	const float delayTimeDifference =
-		ofClamp(
-			std::abs(
-				delayTimeMs -
-				320.0f
-			)
-			/
+	// It does NOT activate StepPrint by itself.
+	const float delayTimeNormalised =
+		ofMap(
+			delayTimeMs,
+			90.0f,
 			900.0f,
 			0.0f,
-			1.0f
+			1.0f,
+			true
 		);
 
 
-	const float timeDrive =
-		visualCurve(
-			delayTimeDifference
-		)
-		*
-		0.80f;
+	const bool delayControlsOff =
+		dubSend <
+			0.015f &&
+		delayFeedback <
+			0.015f;
 
 
 	float delayTarget =
 		std::max(
 			sendDrive,
 			feedbackDrive *
-				0.84f
+				0.86f
 		);
 
 
-	delayTarget =
-		std::max(
-			delayTarget,
-			timeDrive
-		);
+	if (
+		!delayControlsOff
+	)
+	{
+		// Delay time shapes an already-active delay state.
+		delayTarget *=
+			(
+				0.74f +
+				delayTimeNormalised *
+					0.26f
+			);
 
 
-	delayTarget =
-		std::max(
-			delayTarget,
-			delayTouch
-		);
+		delayTarget =
+			std::max(
+				delayTarget,
+				delayTouch *
+					0.16f
+			);
 
 
-	delayTarget +=
-		delayGesture *
-		0.16f;
+		delayTarget +=
+			delayGesture *
+			0.05f;
 
 
-	delayTarget +=
-		reverbToDelayAccent *
-		0.16f;
+		delayTarget +=
+			reverbToDelayAccent *
+			0.06f;
+	}
+	else
+	{
+		delayTouch =
+			0.0f;
+
+		delayGesture =
+			0.0f;
+
+		reverbToDelayAccent =
+			0.0f;
+
+		delayTarget =
+			0.0f;
+	}
 
 
 	delayTarget =
@@ -394,19 +462,48 @@ void VisualStateManager::update(
 	// BASS
 	// ============================================================
 
-	float bassTarget =
-		std::max(
-			visualCurve(
-				bass
-			),
-			bassTouch *
-				0.82f
+	const float bassDrive =
+		familyCurve(
+			bass
 		);
 
 
-	bassTarget +=
-		bassGesture *
-		0.10f;
+	const bool bassControlsOff =
+		bass <
+		0.015f;
+
+
+	float bassTarget =
+		bassDrive;
+
+
+	if (
+		!bassControlsOff
+	)
+	{
+		bassTarget =
+			std::max(
+				bassTarget,
+				bassTouch *
+					0.16f
+			);
+
+
+		bassTarget +=
+			bassGesture *
+			0.045f;
+	}
+	else
+	{
+		bassTouch =
+			0.0f;
+
+		bassGesture =
+			0.0f;
+
+		bassTarget =
+			0.0f;
+	}
 
 
 	bassTarget =
@@ -418,66 +515,22 @@ void VisualStateManager::update(
 
 
 	// ============================================================
-	// INTENSITY-DEPENDENT DECAY
-	// ============================================================
+	// PRESENCE SMOOTHING
 	//
-	// IMPORTANT:
+	// FAST, READABLE RELEASE.
 	//
-	// coming down from 0.9 now hangs much longer than coming down
-	// from 0.2.
+	// We still ease away rather than snapping instantly.
+	//
+	// But once somebody physically turns a control down, the work
+	// should visibly start returning toward clean immediately.
 	// ============================================================
-
-	const float reverbRelease =
-		ofLerp(
-			2.20f,
-			0.11f,
-			pow(
-				ofClamp(
-					reverbPresence,
-					0.0f,
-					1.0f
-				),
-				0.78f
-			)
-		);
-
-
-	const float delayRelease =
-		ofLerp(
-			2.20f,
-			0.12f,
-			pow(
-				ofClamp(
-					delayPresence,
-					0.0f,
-					1.0f
-				),
-				0.78f
-			)
-		);
-
-
-	const float bassRelease =
-		ofLerp(
-			2.0f,
-			0.55f,
-			pow(
-				ofClamp(
-					bassPresence,
-					0.0f,
-					1.0f
-				),
-				0.78f
-			)
-		);
-
 
 	reverbPresence =
 		smoothTowards(
 			reverbPresence,
 			reverbTarget,
-			8.5f,
-			reverbRelease,
+			7.5f,
+			6.2f,
 			deltaTime
 		);
 
@@ -486,8 +539,8 @@ void VisualStateManager::update(
 		smoothTowards(
 			delayPresence,
 			delayTarget,
-			8.5f,
-			delayRelease,
+			7.5f,
+			6.5f,
 			deltaTime
 		);
 
@@ -496,28 +549,78 @@ void VisualStateManager::update(
 		smoothTowards(
 			bassPresence,
 			bassTarget,
-			8.0f,
-			bassRelease,
+			7.0f,
+			6.8f,
 			deltaTime
 		);
 
+
+	// ============================================================
+	// DECISIVE CLEAN SNAP
+	//
+	// Prevent microscopic smoothed values keeping the rendering
+	// branches alive forever.
+	// ============================================================
+
+	if (
+		reverbControlsOff &&
+		reverbPresence <
+		0.018f
+	)
+	{
+		reverbPresence =
+			0.0f;
+	}
+
+
+	if (
+		delayControlsOff &&
+		delayPresence <
+		0.018f
+	)
+	{
+		delayPresence =
+			0.0f;
+	}
+
+
+	if (
+		bassControlsOff &&
+		bassPresence <
+		0.018f
+	)
+	{
+		bassPresence =
+			0.0f;
+	}
+
+
+	// ============================================================
+	// DUB CROSSFADER
+	// ============================================================
 
 	processedAmount =
 		smoothTowards(
 			processedAmount,
 			dubCrossfader,
 			7.0f,
-			4.0f,
+			5.0f,
 			deltaTime
 		);
 
+
+	// ============================================================
+	// TRANSIENTS
+	//
+	// These are now genuinely transient.
+	// ============================================================
 
 	reverbTouch =
 		smoothTowards(
 			reverbTouch,
 			0.0f,
 			12.0f,
-			0.95f,
+			7.0f,
 			deltaTime
 		);
 
@@ -527,7 +630,7 @@ void VisualStateManager::update(
 			delayTouch,
 			0.0f,
 			12.0f,
-			0.95f,
+			7.0f,
 			deltaTime
 		);
 
@@ -537,7 +640,7 @@ void VisualStateManager::update(
 			bassTouch,
 			0.0f,
 			12.0f,
-			1.5f,
+			7.0f,
 			deltaTime
 		);
 
@@ -547,7 +650,7 @@ void VisualStateManager::update(
 			reverbGesture,
 			0.0f,
 			12.0f,
-			2.2f,
+			7.5f,
 			deltaTime
 		);
 
@@ -557,7 +660,7 @@ void VisualStateManager::update(
 			delayGesture,
 			0.0f,
 			12.0f,
-			2.2f,
+			7.5f,
 			deltaTime
 		);
 
@@ -567,7 +670,7 @@ void VisualStateManager::update(
 			bassGesture,
 			0.0f,
 			12.0f,
-			2.6f,
+			7.5f,
 			deltaTime
 		);
 
@@ -577,7 +680,7 @@ void VisualStateManager::update(
 			reverbToDelayAccent,
 			0.0f,
 			14.0f,
-			1.0f,
+			7.0f,
 			deltaTime
 		);
 
@@ -587,7 +690,7 @@ void VisualStateManager::update(
 			delayToReverbAccent,
 			0.0f,
 			14.0f,
-			1.0f,
+			7.0f,
 			deltaTime
 		);
 
@@ -597,16 +700,20 @@ void VisualStateManager::update(
 			sirenImpulse,
 			0.0f,
 			15.0f,
-			1.6f,
+			3.0f,
 			deltaTime
 		);
 
+
+	// ============================================================
+	// FAMILY HIERARCHY
+	// ============================================================
 
 	updateHierarchy();
 
 
 	// ============================================================
-	// TEMPORAL MORPH
+	// TEMPORAL DIRECTION
 	// ============================================================
 
 	float directionTarget =
@@ -616,12 +723,12 @@ void VisualStateManager::update(
 
 	directionTarget +=
 		reverbToDelayAccent *
-		0.70f;
+		0.42f;
 
 
 	directionTarget -=
 		delayToReverbAccent *
-		0.70f;
+		0.42f;
 
 
 	directionTarget =
@@ -635,7 +742,7 @@ void VisualStateManager::update(
 	const float directionEase =
 		1.0f -
 		exp(
-			-2.3f *
+			-5.5f *
 			deltaTime
 		);
 
@@ -647,6 +754,10 @@ void VisualStateManager::update(
 			directionEase
 		);
 
+
+	// ============================================================
+	// TEMPORAL OVERLAP
+	// ============================================================
 
 	temporalOverlap =
 		ofClamp(
@@ -660,7 +771,7 @@ void VisualStateManager::update(
 
 
 	const float overlapCharacter =
-		visualCurve(
+		familyCurve(
 			temporalOverlap
 		);
 
@@ -682,7 +793,7 @@ void VisualStateManager::update(
 		ofClamp(
 			blurToStepMorph +
 			reverbToDelayAccent *
-				0.40f,
+				0.20f,
 			0.0f,
 			1.0f
 		);
@@ -705,14 +816,14 @@ void VisualStateManager::update(
 		ofClamp(
 			stepToBlurMorph +
 			delayToReverbAccent *
-				0.40f,
+				0.20f,
 			0.0f,
 			1.0f
 		);
 
 
 	// ============================================================
-	// HYBRID MUTATION STATE
+	// HYBRID MUTATION
 	// ============================================================
 
 	float mutationTarget =
@@ -735,17 +846,50 @@ void VisualStateManager::update(
 
 
 	mutationTarget =
-		visualCurve(
+		familyCurve(
 			mutationTarget
 		);
 
 
-	const float mutationRelease =
-		ofLerp(
-			1.4f,
-			0.20f,
-			mutationAmount
+	// No two families active:
+	// kill mutation rather than preserving some vague memory state.
+	const int activeFamilies =
+		(
+			reverbPresence >
+			0.02f
+			?
+			1
+			:
+			0
+		)
+		+
+		(
+			delayPresence >
+			0.02f
+			?
+			1
+			:
+			0
+		)
+		+
+		(
+			bassPresence >
+			0.02f
+			?
+			1
+			:
+			0
 		);
+
+
+	if (
+		activeFamilies <
+		2
+	)
+	{
+		mutationTarget =
+			0.0f;
+	}
 
 
 	mutationAmount =
@@ -753,10 +897,26 @@ void VisualStateManager::update(
 			mutationAmount,
 			mutationTarget,
 			6.0f,
-			mutationRelease,
+			7.0f,
 			deltaTime
 		);
 
+
+	if (
+		mutationTarget <=
+			0.001f &&
+		mutationAmount <
+			0.015f
+	)
+	{
+		mutationAmount =
+			0.0f;
+	}
+
+
+	// ============================================================
+	// ORGANIC DRIFT
+	// ============================================================
 
 	organicPhase +=
 		deltaTime *
@@ -783,9 +943,9 @@ void VisualStateManager::update(
 
 
 	const float modulationDepth =
-		0.05f +
+		0.025f +
 		mutationAmount *
-			0.10f;
+			0.075f;
 
 
 	organicBassModulation =
@@ -801,11 +961,10 @@ void VisualStateManager::update(
 	organicBassModulation =
 		ofClamp(
 			organicBassModulation,
-			0.78f,
-			1.15f
+			0.84f,
+			1.12f
 		);
 }
-
 
 //--------------------------------------------------------------
 void VisualStateManager::updateHierarchy()
@@ -1367,90 +1526,214 @@ float VisualStateManager::getMutationDrift() const
 
 
 //--------------------------------------------------------------
+//--------------------------------------------------------------
 float VisualStateManager::getBlurPersistence() const
 {
 	if (
 		blurWeight <
-		0.001f
+		0.01f
 	)
 	{
 		return 0.0f;
 	}
 
 
-	return ofMap(
-		reverbRoom,
+	const float intensity =
+		pow(
+			ofClamp(
+				blurWeight,
+				0.0f,
+				1.0f
+			),
+			1.25f
+		);
+
+
+	const float room =
+		ofClamp(
+			reverbRoom,
+			0.0f,
+			1.0f
+		);
+
+
+	const float damping =
+		ofClamp(
+			reverbDamping,
+			0.0f,
+			1.0f
+		);
+
+
+	float persistence =
+		0.20f +
+		intensity *
+			0.68f +
+		room *
+			intensity *
+			0.10f;
+
+
+	// More damping slightly shortens the visible history.
+	persistence -=
+		damping *
+		intensity *
+		0.06f;
+
+
+	return ofClamp(
+		persistence,
 		0.0f,
-		1.0f,
-		0.80f,
-		0.994f,
-		true
+		0.97f
 	);
 }
+
+
 //--------------------------------------------------------------
 float VisualStateManager::getBlurMix() const
 {
 	if (
 		blurWeight <
-		0.001f
+		0.01f
 	)
 	{
 		return 0.0f;
 	}
 
 
-	const float wet =
-		visualCurve(
-			reverbWet
+	const float intensity =
+		pow(
+			ofClamp(
+				blurWeight,
+				0.0f,
+				1.0f
+			),
+			1.35f
 		);
 
 
-	// If reverb has woken MotionBlur at all,
-	// don't let its rendered opacity be microscopic.
-	float value =
-		0.48f +
-		visualCurve(
-			blurWeight
-		)
-		*
-		0.27f;
+	const float wet =
+		ofClamp(
+			reverbWet,
+			0.0f,
+			1.0f
+		);
 
 
-	// Wet then takes it from obvious to extreme.
-	value +=
-		wet *
-		0.24f;
+	const float room =
+		ofClamp(
+			reverbRoom,
+			0.0f,
+			1.0f
+		);
+
+
+	const float width =
+		ofClamp(
+			reverbWidth,
+			0.0f,
+			1.0f
+		);
+
+
+	const float damping =
+		ofClamp(
+			reverbDamping,
+			0.0f,
+			1.0f
+		);
+
+
+	const float parameterCharacter =
+		std::max(
+			wet,
+			std::max(
+				room * 0.85f,
+				std::max(
+					width * 0.78f,
+					damping * 0.62f
+				)
+			)
+		);
+
+
+	// Low values now genuinely look low.
+	//
+	// Maximum still reaches the strange replacement state.
+	const float mix =
+		intensity *
+		(
+			0.12f +
+			parameterCharacter *
+				0.88f
+		);
 
 
 	return ofClamp(
-		value,
+		mix,
 		0.0f,
-		0.99f
+		1.0f
 	);
 }
+
 
 //--------------------------------------------------------------
 float VisualStateManager::getBlurStretch() const
 {
 	if (
 		blurWeight <
-		0.001f
+		0.01f
 	)
 	{
 		return 0.0f;
 	}
 
 
-	return ofMap(
-		reverbWidth,
+	const float intensity =
+		pow(
+			ofClamp(
+				blurWeight,
+				0.0f,
+				1.0f
+			),
+			1.22f
+		);
+
+
+	const float width =
+		ofClamp(
+			reverbWidth,
+			0.0f,
+			1.0f
+		);
+
+
+	const float damping =
+		ofClamp(
+			reverbDamping,
+			0.0f,
+			1.0f
+		);
+
+
+	const float stretch =
+		3.0f +
+		intensity *
+		(
+			18.0f +
+			width *
+				150.0f +
+			damping *
+				22.0f
+		);
+
+
+	return ofClamp(
+		stretch,
 		0.0f,
-		1.0f,
-		12.0f,
-		150.0f,
-		true
+		195.0f
 	);
 }
-
 float VisualStateManager::getBlurSoftness() const
 {
 	if (
@@ -1480,6 +1763,7 @@ float VisualStateManager::getBlurSoftness() const
 }
 
 //--------------------------------------------------------------
+//--------------------------------------------------------------
 int VisualStateManager::getStepInterval() const
 {
 	const float sendIntensity =
@@ -1489,14 +1773,12 @@ int VisualStateManager::getStepInterval() const
 			1.0f
 		);
 
-
 	const float feedbackIntensity =
 		ofClamp(
 			delayFeedback,
 			0.0f,
 			1.0f
 		);
-
 
 	const float timeIntensity =
 		ofMap(
@@ -1508,39 +1790,34 @@ int VisualStateManager::getStepInterval() const
 			true
 		);
 
-
 	float intensity =
 		std::max(
 			sendIntensity,
-			feedbackIntensity
+			feedbackIntensity * 0.88f
 		);
-
 
 	intensity =
 		std::max(
 			intensity,
-			timeIntensity *
-			0.72f
+			timeIntensity * 0.68f
 		);
 
-
-	// Starts fairly gentle but collapses HARD
-	// towards the upper half.
-	intensity =
+	// Early response:
+	// even fairly small Delay values now create an obvious hold.
+	const float response =
 		pow(
-			intensity,
-			1.18f
+			ofClamp(
+				intensity,
+				0.0f,
+				1.0f
+			),
+			0.55f
 		);
-
 
 	const float interval =
-		2.0f +
-		intensity *
-			42.0f +
-		timeIntensity *
-			intensity *
-			4.0f;
-
+		4.0f +
+		response * 20.0f +
+		timeIntensity * response * 5.0f;
 
 	return ofClamp(
 		static_cast<int>(
@@ -1548,11 +1825,11 @@ int VisualStateManager::getStepInterval() const
 				interval
 			)
 		),
-		2,
-		48
+		4,
+		30
 	);
 }
-
+//--------------------------------------------------------------
 //--------------------------------------------------------------
 float VisualStateManager::getStepMix() const
 {
@@ -1564,24 +1841,27 @@ float VisualStateManager::getStepMix() const
 		return 0.0f;
 	}
 
-
-	float value =
-		0.48f +
+	const float response =
 		visualCurve(
 			stepWeight
-		)
-		*
-		0.50f;
+		);
 
+	// Once StepPrint is awake it should already be legible.
+	//
+	// The controller then moves it from obvious -> dominant,
+	// rather than invisible -> obvious.
+	const float value =
+		0.60f +
+		response * 0.38f;
 
 	return ofClamp(
 		value,
 		0.0f,
-		1.0f
+		0.98f
 	);
 }
 
-
+//--------------------------------------------------------------
 //--------------------------------------------------------------
 float VisualStateManager::getStepFeedback() const
 {
@@ -1593,14 +1873,23 @@ float VisualStateManager::getStepFeedback() const
 		return 0.0f;
 	}
 
+	const float stepPresence =
+		visualCurve(
+			stepWeight
+		);
 
-	return ofClamp(
+	const float actualFeedback =
 		visualCurve(
 			delayFeedback
-		)
-		+
-		mutationAmount *
-			0.08f,
+		);
+
+	float value =
+		stepPresence * 0.22f +
+		actualFeedback * 0.75f +
+		mutationAmount * 0.05f;
+
+	return ofClamp(
+		value,
 		0.0f,
 		1.0f
 	);

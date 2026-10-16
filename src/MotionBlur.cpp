@@ -792,6 +792,7 @@ void MotionBlur::update(
 
 
 //--------------------------------------------------------------
+//--------------------------------------------------------------
 void MotionBlur::decayOnly()
 {
 	if (
@@ -801,39 +802,50 @@ void MotionBlur::decayOnly()
 		residualStrength =
 			0.0f;
 
-
 		return;
 	}
 
 
 	// ============================================================
-	// CONTROLLER HAS FALLEN AWAY
+	// SHORT, OBVIOUS RELEASE
 	//
-	// No new motion.
+	// The viewer should see:
 	//
-	// Keep a short visible residue, then kill it decisively.
+	// effect
+	//   ↓
+	// short after-image
+	//   ↓
+	// CLEAN
+	//
+	// Not an effect remaining for minutes.
 	// ============================================================
 
 	fadeHistory(
-		0.78f
+		0.62f
 	);
 
 
 	residualStrength *=
-		0.82f;
+		0.68f;
 
 
 	if (
 		residualStrength <
-		0.008f
+		0.02f
 	)
 	{
 		residualStrength =
 			0.0f;
+
+		clear();
 	}
 }
 
-
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
 //--------------------------------------------------------------
 void MotionBlur::apply(
 	ofFbo& fbo
@@ -868,45 +880,127 @@ void MotionBlur::apply(
 	}
 
 
-	if (
-		!outputBuffer.isAllocated() ||
-		outputBuffer.getWidth() != width ||
-		outputBuffer.getHeight() != height
-	)
-	{
-		outputBuffer.allocate(
-			width,
-			height,
-			GL_RGBA
-		);
-	}
-
-
-	const float controllerMix =
-		std::pow(
-			ofClamp(
-				mixAmount,
-				0.0f,
-				1.0f
-			),
-			0.30f
-		);
-
-
-	const float residueMix =
-		residualStrength *
-		0.60f;
-
-
-	const float effectiveMix =
-		std::max(
-			controllerMix,
-			residueMix
-		);
-
+	// ============================================================
+	// SAVE CLEAN INPUT
+	// ============================================================
 
 	outputBuffer.begin();
 
+	ofClear(
+		0,
+		0,
+		0,
+		255
+	);
+
+	ofSetColor(255);
+
+	fbo.draw(
+		0,
+		0,
+		width,
+		height
+	);
+
+	outputBuffer.end();
+
+
+	// ============================================================
+	// EFFECT STRENGTH
+	// ============================================================
+
+	float effectiveMix =
+		ofClamp(
+			mixAmount,
+			0.0f,
+			1.0f
+		);
+
+
+	// ------------------------------------------------------------
+	// RESIDUAL RELEASE
+	//
+	// When the physical controls reach zero, the historical image
+	// is allowed to fizzle away rather than vanish immediately.
+	// ------------------------------------------------------------
+
+	if (
+		effectiveMix <
+			0.001f &&
+		residualStrength >
+			0.008f
+	)
+	{
+		effectiveMix =
+			ofClamp(
+				residualStrength *
+					0.22f,
+				0.0f,
+				0.22f
+			);
+	}
+
+
+	if (
+		effectiveMix <=
+		0.001f
+	)
+	{
+		return;
+	}
+
+
+	// ============================================================
+	// SMOOTH RESPONSE
+	//
+	// Smoothstep:
+	//
+	// no abrupt jump from small -> huge.
+	// ============================================================
+
+	const float smoothMix =
+		effectiveMix *
+		effectiveMix *
+		(
+			3.0f -
+			2.0f *
+				effectiveMix
+		);
+
+
+	// ============================================================
+	// EXTREME BLACK STATE
+	//
+	// Only the final part of the control travel reaches the old
+	// black-heavy accumulated world.
+	// ============================================================
+
+	float extremeAmount =
+		ofMap(
+			smoothMix,
+			0.88f,
+			1.0f,
+			0.0f,
+			1.0f,
+			true
+		);
+
+
+	extremeAmount =
+		extremeAmount *
+		extremeAmount *
+		(
+			3.0f -
+			2.0f *
+				extremeAmount
+		);
+
+
+	// ============================================================
+	// NORMAL IMAGE
+	// ============================================================
+
+	fbo.begin();
 
 	ofClear(
 		0,
@@ -916,16 +1010,15 @@ void MotionBlur::apply(
 	);
 
 
-	// ============================================================
-	// CLEAN IMAGE
-	// ============================================================
+	// ------------------------------------------------------------
+	// FULL-VISIBILITY SOURCE
+	//
+	// Never lower the opacity of the actual footage.
+	// ------------------------------------------------------------
 
-	ofSetColor(
-		255
-	);
+	ofSetColor(255);
 
-
-	fbo.draw(
+	outputBuffer.draw(
 		0,
 		0,
 		width,
@@ -934,65 +1027,51 @@ void MotionBlur::apply(
 
 
 	// ============================================================
-
+	// NORMAL MOTION RESIDUE
+	//
+	// ADDITIVE:
+	//
+	// black areas in accumulationBuffer contribute nothing.
+	//
+	// They therefore DO NOT darken the footage.
 	// ============================================================
 
+	const float normalTrailAmount =
+		smoothMix *
+		(
+			1.0f -
+			extremeAmount *
+				0.58f
+		);
+
+
 	if (
-		effectiveMix >
+		normalTrailAmount >
 		0.001f
 	)
 	{
 		ofEnableBlendMode(
-			OF_BLENDMODE_SCREEN
+			OF_BLENDMODE_ADD
 		);
-
-
-		// Main history.
-		ofSetColor(
-			255,
-			255,
-			255,
-			effectiveMix *
-				142.0f
-		);
-
-
-		accumulationBuffer.draw(
-			0,
-			0,
-			width,
-			height
-		);
-
-
-		// Two extremely restrained soft ghosts.
-		//
-		// They increase blur without flooding the screen.
-		const float spread =
-			2.0f +
-			effectiveMix *
-				7.0f;
 
 
 		ofSetColor(
 			255,
 			255,
 			255,
-			effectiveMix *
-				26.0f
+			static_cast<int>(
+				ofClamp(
+					normalTrailAmount *
+						185.0f,
+					0.0f,
+					185.0f
+				)
+			)
 		);
 
 
 		accumulationBuffer.draw(
-			-spread,
 			0,
-			width,
-			height
-		);
-
-
-		accumulationBuffer.draw(
-			spread,
 			0,
 			width,
 			height
@@ -1003,42 +1082,59 @@ void MotionBlur::apply(
 	}
 
 
-	ofSetColor(
-		255
-	);
+	// ============================================================
+	// EXTREME TEMPORAL COLLAPSE
+	//
+	// Here — and ONLY here — the accumulated black-backed image
+	// begins replacing the normal footage.
+	//
+	// This restores the older MotionBlur character at maximum.
+	// ============================================================
+
+	if (
+		extremeAmount >
+		0.001f
+	)
+	{
+		const float collapse =
+			pow(
+				extremeAmount,
+				1.35f
+			);
 
 
-	outputBuffer.end();
+		ofEnableBlendMode(
+			OF_BLENDMODE_ALPHA
+		);
 
 
-	fbo.begin();
+		ofSetColor(
+			255,
+			255,
+			255,
+			static_cast<int>(
+				collapse *
+				255.0f
+			)
+		);
 
 
-	ofClear(
-		0,
-		0,
-		0,
-		255
-	);
+		accumulationBuffer.draw(
+			0,
+			0,
+			width,
+			height
+		);
 
 
-	ofSetColor(
-		255
-	);
+		ofDisableBlendMode();
+	}
 
 
-	outputBuffer.draw(
-		0,
-		0,
-		width,
-		height
-	);
-
+	ofSetColor(255);
 
 	fbo.end();
 }
-
-
 //--------------------------------------------------------------
 void MotionBlur::clear()
 {
@@ -1184,11 +1280,12 @@ float MotionBlur::getStretchAmount() const
 
 
 //--------------------------------------------------------------
+//--------------------------------------------------------------
 bool MotionBlur::hasVisibleResidue() const
 {
 	return (
 		residualStrength >
-		0.008f
+		0.02f
 	);
 }
 

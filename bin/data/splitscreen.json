@@ -2,12 +2,77 @@
   "splitScreens": [
     {
       "id": "split_01",
-      "file": "JME_SKEPTA_FREESTYLE(2006).mp4",
+      "file": "splitscreen/splitscreen1.mp4",
       "hasAudio": false
     },
     {
       "id": "split_02",
-      "file": "1980s_UK_Dance_Hall_Party_Black_British_Life_Home_Movies.mp4",
+      "file": "splitscreen/splitscreen2.mp4",
+      "hasAudio": false
+    },
+    {
+      "id": "split_03",
+      "file": "splitscreen/splitscreen3.mp4",
+      "hasAudio": false
+    },
+    {
+      "id": "split_04",
+      "file": "splitscreen/splitscreen4.mp4",
+      "hasAudio": false
+    },
+    {
+      "id": "split_05",
+      "file": "splitscreen/splitscreen5.mp4",
+      "hasAudio": false
+    },
+    {
+      "id": "split_06",
+      "file": "splitscreen/splitscreen6.mp4",
+      "hasAudio": false
+    },
+    {
+      "id": "split_07",
+      "file": "splitscreen/splitscreen7.mp4",
+      "hasAudio": false
+    },
+    {
+      "id": "split_08",
+      "file": "splitscreen/splitscreen8.mp4",
+      "hasAudio": false
+    },
+    {
+      "id": "split_09",
+      "file": "splitscreen/splitscreen9.mp4",
+      "hasAudio": false
+    },
+    {
+      "id": "split_10",
+      "file": "splitscreen/splitscreen10.mp4",
+      "hasAudio": false
+    },
+    {
+      "id": "split_11",
+      "file": "splitscreen/splitscreen11.mp4",
+      "hasAudio": false
+    },
+    {
+      "id": "split_12",
+      "file": "splitscreen/splitscreen12.mp4",
+      "hasAudio": false
+    },
+    {
+      "id": "split_13",
+      "file": "splitscreen/splitscreen13.mp4",
+      "hasAudio": false
+    },
+    {
+      "id": "split_14",
+      "file": "splitscreen/splitscreen14.mp4",
+      "hasAudio": false
+    },
+    {
+      "id": "split_15",
+      "file": "splitscreen/splitscreen15.mp4",
       "hasAudio": false
     }
   ]

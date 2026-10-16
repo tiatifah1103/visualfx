@@ -391,31 +391,28 @@ void StepPrinting::update(
 
 //--------------------------------------------------------------
 //--------------------------------------------------------------
+//--------------------------------------------------------------
 void StepPrinting::apply(
 	ofFbo& fbo
 )
 {
 	if (
 		!isActive() ||
-		framesStored <=
-			0
+		framesStored <= 0
 	)
 	{
 		return;
 	}
-
 
 	const int width =
 		static_cast<int>(
 			fbo.getWidth()
 		);
 
-
 	const int height =
 		static_cast<int>(
 			fbo.getHeight()
 		);
-
 
 	if (
 		width <= 0 ||
@@ -424,7 +421,6 @@ void StepPrinting::apply(
 	{
 		return;
 	}
-
 
 	if (
 		!outputBuffer.isAllocated() ||
@@ -437,10 +433,17 @@ void StepPrinting::apply(
 			height
 		);
 
-
 		return;
 	}
 
+	// ============================================================
+	// RESPONSE
+	//
+	// Strong early response.
+	//
+	// You should NOT have to push Delay towards maximum before
+	// StepPrint becomes visually identifiable.
+	// ============================================================
 
 	const float mixResponse =
 		pow(
@@ -449,9 +452,8 @@ void StepPrinting::apply(
 				0.0f,
 				1.0f
 			),
-			0.24f
+			0.30f
 		);
-
 
 	const float feedbackResponse =
 		pow(
@@ -460,27 +462,25 @@ void StepPrinting::apply(
 				0.0f,
 				1.0f
 			),
-			0.34f
+			0.42f
 		);
 
-
 	int newestIndex =
-		writeIndex -
-		1;
-
+		writeIndex - 1;
 
 	if (
-		newestIndex <
-		0
+		newestIndex < 0
 	)
 	{
 		newestIndex +=
 			HISTORY_SIZE;
 	}
 
+	// ============================================================
+	// BEGIN OUTPUT
+	// ============================================================
 
 	outputBuffer.begin();
-
 
 	ofClear(
 		0,
@@ -489,27 +489,18 @@ void StepPrinting::apply(
 		255
 	);
 
-
 	// ============================================================
-	// LIVE IMAGE
+	// CURRENT IMAGE
+	//
+	// KEEP IT FULLY VISIBLE.
+	//
+	// We do not dim the whole image in order to make StepPrint
+	// visible. Historical frames are printed ON TOP.
 	// ============================================================
-
-	const float liveOpacity =
-		ofLerp(
-			1.0f,
-			0.16f,
-			mixResponse
-		);
-
 
 	ofSetColor(
-		255,
-		255,
-		255,
-		liveOpacity *
-			255.0f
+		255
 	);
-
 
 	fbo.draw(
 		0,
@@ -518,23 +509,24 @@ void StepPrinting::apply(
 		height
 	);
 
-
 	ofEnableBlendMode(
 		OF_BLENDMODE_ALPHA
 	);
 
-
 	// ============================================================
-	// PRIMARY HELD PRINT
+	// MAIN HELD FRAME
+	//
+	// This is the source of the actual temporal chop.
+	//
+	// It becomes dominant quite early.
 	// ============================================================
 
 	const float heldOpacity =
 		ofLerp(
-			0.50f,
-			0.96f,
+			0.56f,
+			0.91f,
 			mixResponse
 		);
-
 
 	ofSetColor(
 		255,
@@ -543,7 +535,6 @@ void StepPrinting::apply(
 		heldOpacity *
 			255.0f
 	);
-
 
 	historyFrames[
 		newestIndex
@@ -554,32 +545,33 @@ void StepPrinting::apply(
 		height
 	);
 
+	// ============================================================
+	// SAME PRINT / REGISTRATION GHOST
+	//
+	// Unlike the old version this does NOT require significant
+	// feedback before it appears.
+	//
+	// Feedback merely stretches it further away.
+	// ============================================================
 
-	// ============================================================
-	// CURRENT-PRINT GHOST
-	//
-	// This is deliberately not a split screen.
-	//
-	// It is one print failing to sit perfectly on top of itself.
-	// ============================================================
+	const float ghostDistance =
+		1.5f +
+		mixResponse * 2.5f +
+		feedbackResponse * 7.0f;
+
+	const float ghostAlpha =
+		mixResponse *
+		(
+			24.0f +
+			feedbackResponse *
+				54.0f
+		);
 
 	if (
-		feedbackResponse >
-		0.04f
+		ghostAlpha >
+		1.0f
 	)
 	{
-		const float ghostDistance =
-			3.0f +
-			feedbackResponse *
-				13.0f;
-
-
-		const float ghostAlpha =
-			feedbackResponse *
-			mixResponse *
-			72.0f;
-
-
 		ofSetColor(
 			255,
 			255,
@@ -587,56 +579,59 @@ void StepPrinting::apply(
 			ghostAlpha
 		);
 
-
 		historyFrames[
 			newestIndex
 		].draw(
 			-ghostDistance,
-			0,
+			0.0f,
 			width,
 			height
 		);
-
 
 		ofSetColor(
 			255,
 			255,
 			255,
-			ghostAlpha *
-				0.58f
+			ghostAlpha * 0.48f
 		);
-
 
 		historyFrames[
 			newestIndex
 		].draw(
-			ghostDistance *
-				0.65f,
-			ghostDistance *
-				0.10f,
+			ghostDistance * 0.62f,
+			ghostDistance * 0.08f,
 			width,
 			height
 		);
 	}
 
+	// ============================================================
+	// PREVIOUS PRINTS
+	//
+	// This is the double / multiple-exposure part.
+	//
+	// IMPORTANT:
+	//
+	// These previous frames now exist from STEP MIX ALONE.
+	//
+	// Delay feedback increases their persistence and displacement,
+	// but is not required to make them visible.
+	// ============================================================
 
-	// ============================================================
-	// EARLIER PRINT GENERATIONS
-	//
-	// This is now deliberately much more visible.
-	//
-	// Each historical generation has a small registration error,
-	// so the result reads like repeated exposures / repeatedly
-	// printed temporal material.
-	// ============================================================
+	const int availableOlderFrames =
+		std::min(
+			framesStored - 1,
+			std::max(
+				0,
+				maxStoredFrames - 1
+			)
+		);
 
 	const int olderFrames =
 		std::min(
-			framesStored -
-				1,
+			availableOlderFrames,
 			3
 		);
-
 
 	for (
 		int age = 1;
@@ -648,33 +643,40 @@ void StepPrinting::apply(
 			newestIndex -
 			age;
 
-
 		while (
-			index <
-			0
+			index < 0
 		)
 		{
 			index +=
 				HISTORY_SIZE;
 		}
 
-
 		const float ageFade =
 			pow(
-				0.66f,
+				0.62f,
 				static_cast<float>(
-					age -
-					1
+					age - 1
 				)
 			);
 
-
-		const float echoAlpha =
-			feedbackResponse *
+		// Baseline exposure comes from mixResponse.
+		//
+		// Feedback increases it rather than creating it.
+		float echoAlpha =
 			mixResponse *
 			ageFade *
-			132.0f;
+			(
+				36.0f +
+				feedbackResponse *
+					74.0f
+			);
 
+		echoAlpha =
+			ofClamp(
+				echoAlpha,
+				0.0f,
+				112.0f
+			);
 
 		if (
 			echoAlpha <
@@ -684,8 +686,6 @@ void StepPrinting::apply(
 			continue;
 		}
 
-
-		// Alternate historical generations left/right.
 		const float direction =
 			(
 				age %
@@ -693,20 +693,24 @@ void StepPrinting::apply(
 				0
 			)
 			?
-				1.0f
+			1.0f
 			:
-				-1.0f;
+			-1.0f;
 
-
+		// Small imperfect registration.
+		//
+		// Enough to read as several exposures,
+		// not enough to become generic glitch displacement.
 		const float displacement =
 			direction *
 			(
-				4.0f +
+				2.0f +
+				mixResponse *
+					2.0f +
 				feedbackResponse *
-					6.0f *
+					4.0f *
 					age
 			);
-
 
 		const float yDisplacement =
 			(
@@ -715,30 +719,25 @@ void StepPrinting::apply(
 			)
 			*
 			feedbackResponse *
-			1.8f;
+			1.1f;
 
-
-		// Tiny registration scale drift.
 		const float scaleAmount =
 			1.0f +
 			feedbackResponse *
-			0.0035f *
+			0.0025f *
 			static_cast<float>(
 				age
 			);
-
 
 		const float drawWidth =
 			width *
 			scaleAmount;
 
-
 		const float drawHeight =
 			height *
 			scaleAmount;
 
-
-		const float centreCorrectionX =
+		const float correctionX =
 			(
 				width -
 				drawWidth
@@ -746,15 +745,13 @@ void StepPrinting::apply(
 			*
 			0.5f;
 
-
-		const float centreCorrectionY =
+		const float correctionY =
 			(
 				height -
 				drawHeight
 			)
 			*
 			0.5f;
-
 
 		ofSetColor(
 			255,
@@ -763,58 +760,51 @@ void StepPrinting::apply(
 			echoAlpha
 		);
 
-
 		historyFrames[
 			index
 		].draw(
-			centreCorrectionX +
+			correctionX +
 				displacement,
-			centreCorrectionY +
+			correctionY +
 				yDisplacement,
 			drawWidth,
 			drawHeight
 		);
 	}
 
-
 	// ============================================================
 	// CHANGED-REGION PRINT
 	//
-	// Keep this as texture rather than the main identity.
+	// This remains secondary.
+	//
+	// It gives the held frames some broken / printed instability
+	// without becoming a permanent glitch filter.
 	// ============================================================
 
 	if (
 		shaderReady &&
-		feedbackResponse >
-			0.08f &&
-		framesStored >
-			1
+		framesStored > 1 &&
+		mixResponse > 0.10f
 	)
 	{
 		int olderIndex =
-			newestIndex -
-			1;
-
+			newestIndex - 1;
 
 		if (
-			olderIndex <
-			0
+			olderIndex < 0
 		)
 		{
 			olderIndex +=
 				HISTORY_SIZE;
 		}
 
-
 		trailShader.begin();
-
 
 		trailShader.setUniformTexture(
 			"currentTex",
 			fbo.getTexture(),
 			0
 		);
-
 
 		trailShader.setUniformTexture(
 			"historyTex",
@@ -824,34 +814,32 @@ void StepPrinting::apply(
 			1
 		);
 
-
 		trailShader.setUniform1f(
 			"trailAlpha",
+			0.055f +
+			mixResponse *
+				0.065f +
 			feedbackResponse *
-				0.42f
+				0.14f
 		);
-
 
 		trailShader.setUniform1f(
 			"differenceThreshold",
-			0.048f
+			0.052f
 		);
-
 
 		trailShader.setUniform1f(
 			"posterizeLevels",
 			ofLerp(
-				7.0f,
-				3.5f,
+				8.0f,
+				4.0f,
 				feedbackResponse
 			)
 		);
 
-
 		ofSetColor(
 			255
 		);
-
 
 		historyFrames[
 			olderIndex
@@ -862,28 +850,22 @@ void StepPrinting::apply(
 			height
 		);
 
-
 		trailShader.end();
 	}
 
-
 	ofDisableBlendMode();
-
 
 	ofSetColor(
 		255
 	);
 
-
 	outputBuffer.end();
-
 
 	// ============================================================
 	// COPY BACK
 	// ============================================================
 
 	fbo.begin();
-
 
 	ofClear(
 		0,
@@ -892,11 +874,9 @@ void StepPrinting::apply(
 		255
 	);
 
-
 	ofSetColor(
 		255
 	);
-
 
 	outputBuffer.draw(
 		0,
@@ -904,7 +884,6 @@ void StepPrinting::apply(
 		width,
 		height
 	);
-
 
 	fbo.end();
 }
